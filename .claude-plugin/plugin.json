@@ -1,7 +1,7 @@
 {
   "name": "bun-loop-skill",
   "displayName": "Bun Loop",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "An adversarial multi-agent engineering loop for complex software work.",
   "author": {
     "name": "Lzeutschler",

@@ -39,7 +39,7 @@ flowchart LR
   Orchestrator -->|"Clean + verified"| Done["Done"]
 ```
 
-The skill enforces five ideas:
+The skill enforces six ideas:
 
 - **Split contexts:** implementers do not review their own work; reviewers do not
   inherit the implementer's reasoning.
@@ -51,6 +51,13 @@ The skill enforces five ideas:
   acceptance criteria, review findings, and integration checks determine done.
 - **Fix the process:** repeated defect classes update the active contract and review
   rubric instead of being patched one by one forever.
+- **Bound the loop:** scope, work items, fix rounds, fresh contexts, and expensive
+  checks receive hard limits up front; exhausting a limit blocks the task instead
+  of weakening a quality gate.
+
+See [EVALUATION.md](EVALUATION.md) for exploratory SWE-bench-derived comparisons
+against a single coding agent, including failed runs, prompt contamination,
+process cost, and known limitations.
 
 ## Quick start
 
@@ -70,7 +77,7 @@ npx github:Lzeutschler/bun-loop-skill --runtime claude,codex,cursor --global
 
 Restart the runtime after installation so it rescans its skills directory.
 
-## Supported runtimes
+## Installation layouts
 
 The installer follows the flat, native skill layouts documented in
 [GSD Core's runtime mapping matrix](https://github.com/open-gsd/gsd-core/blob/next/docs/reference/skill-mapping-matrix.md).
@@ -93,9 +100,31 @@ Runtime configuration environment variables are respected: `CLAUDE_CONFIG_DIR`,
 `CODEX_HOME`, `CURSOR_CONFIG_DIR`, `COPILOT_CONFIG_DIR`, `OPENCODE_CONFIG_DIR`,
 `KILO_CONFIG_DIR`, `KIMI_CONFIG_DIR`, `CLINE_CONFIG_DIR`, and `XDG_CONFIG_HOME`.
 
-Installation support does not manufacture subagent capabilities. The runtime must
-provide independent agent contexts for the full loop; otherwise the skill reports a
-capability blocker instead of pretending that one context is independent.
+Here, “supported” means the dependency-free installer knows the documented target
+layout and the mapping has automated fixture coverage. It does not claim that every
+runtime has been exercised end to end.
+
+## Full-loop capability status
+
+The full workflow additionally requires a runtime to expose independent subagent
+contexts, two parallel read-only reviewers, a separate writing fixer, and enough
+context capacity to complete the final review gate.
+
+| Runtime | Installer/package status | Full Bun Loop execution status |
+|---|---|---|
+| Claude Code | Layout covered; plugin manifests statically validated | Not yet smoke-tested in a real Claude runtime |
+| Codex | Layout covered; skill metadata validated | Exploratory forward runs completed, but one final review hit the runtime context limit |
+| Cursor | Layout covered | Not yet smoke-tested in a real Cursor runtime |
+| GitHub Copilot | Layout covered | Not yet smoke-tested in a real Copilot runtime |
+| OpenCode | Layout covered | Not yet smoke-tested in a real OpenCode runtime |
+| Kilo | Layout covered | Not yet smoke-tested in a real Kilo runtime |
+| Kimi | Layout covered | Not yet smoke-tested in a real Kimi runtime |
+| Cline | Global layout covered | Not yet smoke-tested in a real Cline runtime |
+
+Installation support cannot manufacture those orchestration capabilities. A runtime
+that cannot provide them must produce a capability blocker instead of simulating
+independent contexts. Until the rows above have real runtime smoke evidence, treat
+the project as a beta rather than a universal execution-compatibility claim.
 
 ## Other installation methods
 
@@ -166,9 +195,14 @@ npx github:Lzeutschler/bun-loop-skill --codex --global --uninstall
 ```
 
 The installer stages updates beside the destination and swaps them into place. It
-never modifies unrelated runtime configuration. Installation refuses to replace
-symlinks or non-directories; uninstall also refuses to delete any directory whose
-`SKILL.md` does not identify it as `bun-loop-skill`.
+never modifies unrelated runtime configuration. Each CLI-managed installation gets
+a `.bun-loop-install.json` marker. Replacement and uninstall require both that
+marker and a matching `bun-loop-skill` manifest, and refuse symlinks,
+non-directories, malformed markers, and unmarked folders.
+
+This deliberately means the CLI will not replace or remove a manually copied or
+legacy unmarked installation. Inspect and move or delete that directory yourself,
+then install again to bring it under installer management.
 
 ## Using the skill
 
@@ -179,9 +213,9 @@ Use $bun-loop-skill to migrate this subsystem while preserving behavior and
 prove the result through independent adversarial reviews.
 ```
 
-The skill may also trigger implicitly for large migrations, cross-cutting refactors,
-compiler or test backlogs, and changes with substantial regression risk. It should
-not trigger implicitly for trivial edits or read-only questions.
+The beta is explicit-only: invoke `$bun-loop-skill` when you want to authorize its
+multi-agent cost and workflow. It does not trigger implicitly, including for complex
+tasks.
 
 ## Repository layout
 

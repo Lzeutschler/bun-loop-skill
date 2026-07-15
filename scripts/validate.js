@@ -27,6 +27,7 @@ function parseJson(relativePath) {
 
 const requiredFiles = [
   "README.md",
+  "EVALUATION.md",
   "LICENSE",
   "CONTRIBUTING.md",
   "SECURITY.md",
@@ -63,7 +64,7 @@ for (const expected of [
   'display_name: "Bun Loop"',
   'short_description: "Run adversarial multi-agent engineering loops"',
   "$bun-loop-skill",
-  "allow_implicit_invocation: true",
+  "allow_implicit_invocation: false",
 ]) {
   if (!openaiYaml.includes(expected)) fail(`agents/openai.yaml is missing: ${expected}`);
 }
@@ -84,6 +85,12 @@ for (const runtime of ["Claude", "Codex", "Cursor", "Copilot", "OpenCode", "Kilo
 }
 if (!readme.includes("npx github:Lzeutschler/bun-loop-skill")) {
   fail("README is missing the install-from-GitHub command");
+}
+if (!readme.includes(".bun-loop-install.json")) {
+  fail("README is missing the managed-install marker behavior");
+}
+if (!readme.includes("Full-loop capability status")) {
+  fail("README must separate installer mappings from runtime capability evidence");
 }
 
 process.stdout.write("Repository validation passed\n");

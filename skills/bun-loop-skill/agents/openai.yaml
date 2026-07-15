@@ -4,4 +4,4 @@ interface:
   default_prompt: "Use $bun-loop-skill to solve this complex software task with an implement-review-fix loop."
 
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false

@@ -6,9 +6,11 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
+const packageJson = require("../package.json");
 const { parseArgs } = require("../bin/install");
 const {
   execute,
+  INSTALL_MARKER,
   resolveDestination,
   resolveOperations,
   SKILL_NAME,
@@ -66,6 +68,13 @@ test("installs, replaces, and uninstalls a custom target", (context) => {
   assert.equal(installed[0].changed, true);
   assert.equal(fs.existsSync(path.join(destination, "SKILL.md")), true);
   assert.equal(fs.existsSync(path.join(destination, "agents", "openai.yaml")), true);
+  const marker = JSON.parse(fs.readFileSync(path.join(destination, INSTALL_MARKER), "utf8"));
+  assert.deepEqual(marker, {
+    schema_version: 1,
+    managed_by: "bun-loop-skill-installer",
+    skill: SKILL_NAME,
+    package_version: packageJson.version,
+  });
 
   fs.writeFileSync(path.join(destination, "stale.txt"), "stale");
   execute(options);
@@ -103,9 +112,51 @@ test("uninstall refuses unrecognized files and directories", (context) => {
   fs.writeFileSync(path.join(destination, "notes.txt"), "user-owned");
   assert.throws(
     () => execute({ target: skillsRoot, runtimes: [], uninstall: true }),
-    /unrecognized installation/,
+    /unmanaged installation/,
   );
   assert.equal(fs.readFileSync(path.join(destination, "notes.txt"), "utf8"), "user-owned");
+});
+
+test("install and uninstall refuse an unmarked skill directory", (context) => {
+  const temp = fixture();
+  context.after(temp.cleanup);
+  const skillsRoot = path.join(temp.directory, "skills");
+  const destination = path.join(skillsRoot, SKILL_NAME);
+  fs.mkdirSync(destination, { recursive: true });
+  const skill = "---\nname: bun-loop-skill\ndescription: user-owned\n---\n";
+  fs.writeFileSync(path.join(destination, "SKILL.md"), skill);
+
+  assert.throws(
+    () => execute({ target: skillsRoot, runtimes: [] }),
+    /unmanaged installation.*\.bun-loop-install\.json/,
+  );
+  assert.throws(
+    () => execute({ target: skillsRoot, runtimes: [], uninstall: true }),
+    /unmanaged installation.*\.bun-loop-install\.json/,
+  );
+  assert.equal(fs.readFileSync(path.join(destination, "SKILL.md"), "utf8"), skill);
+});
+
+test("install and uninstall refuse a malformed management marker", (context) => {
+  const temp = fixture();
+  context.after(temp.cleanup);
+  const skillsRoot = path.join(temp.directory, "skills");
+  const destination = path.join(skillsRoot, SKILL_NAME);
+  fs.mkdirSync(destination, { recursive: true });
+  fs.writeFileSync(
+    path.join(destination, "SKILL.md"),
+    "---\nname: bun-loop-skill\ndescription: user-owned\n---\n",
+  );
+  fs.writeFileSync(path.join(destination, INSTALL_MARKER), "{}\n");
+
+  assert.throws(
+    () => execute({ target: skillsRoot, runtimes: [] }),
+    /invalid marker/,
+  );
+  assert.throws(
+    () => execute({ target: skillsRoot, runtimes: [], uninstall: true }),
+    /invalid marker/,
+  );
 });
 
 test("rejects unsupported local runtime layouts", () => {

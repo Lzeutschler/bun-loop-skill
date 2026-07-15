@@ -1,12 +1,17 @@
 {
   "name": "bun-loop-skill",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "An adversarial multi-agent engineering loop for complex software work.",
   "bin": {
     "bun-loop-skill": "bin/install.js"
   },
   "files": [
     ".claude-plugin",
+    "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "EVALUATION.md",
+    "SECURITY.md",
     "bin",
     "lib",
     "skills"
