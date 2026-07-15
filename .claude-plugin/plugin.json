@@ -1,0 +1,20 @@
+{
+  "name": "bun-loop-skill",
+  "displayName": "Bun Loop",
+  "version": "0.1.0",
+  "description": "An adversarial multi-agent engineering loop for complex software work.",
+  "author": {
+    "name": "Lzeutschler",
+    "url": "https://github.com/Lzeutschler"
+  },
+  "homepage": "https://github.com/Lzeutschler/bun-loop-skill",
+  "repository": "https://github.com/Lzeutschler/bun-loop-skill",
+  "license": "MIT",
+  "keywords": [
+    "adversarial-review",
+    "multi-agent",
+    "engineering",
+    "workflow"
+  ],
+  "skills": "./skills/"
+}

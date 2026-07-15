@@ -1,0 +1,36 @@
+name: Feature request
+description: Propose a scoped workflow or compatibility improvement
+labels: [enhancement, needs-triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete limitation are you encountering?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful change.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Skill workflow
+        - Runtime compatibility
+        - Installer
+        - Documentation
+        - Testing and validation
+    validations:
+      required: true

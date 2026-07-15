@@ -1,0 +1,74 @@
+name: Bug report
+description: Report incorrect skill or installer behavior
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Redact credentials, usernames, private
+        repository names, and local paths before pasting logs or transcripts.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I removed sensitive information from the report.
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: 0.1.0 or commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options:
+        - Claude Code
+        - Codex
+        - Cursor
+        - GitHub Copilot
+        - OpenCode
+        - Kilo
+        - Kimi
+        - Cline
+        - Custom target
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system and Node.js version
+      placeholder: macOS 15, Node.js 22.14.0
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Installation or invocation command
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include exact steps and sanitized output.
+    validations:
+      required: true

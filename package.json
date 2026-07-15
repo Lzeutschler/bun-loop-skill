@@ -1,0 +1,45 @@
+{
+  "name": "bun-loop-skill",
+  "version": "0.1.0",
+  "description": "An adversarial multi-agent engineering loop for complex software work.",
+  "bin": {
+    "bun-loop-skill": "bin/install.js"
+  },
+  "files": [
+    ".claude-plugin",
+    "bin",
+    "lib",
+    "skills"
+  ],
+  "scripts": {
+    "validate": "node scripts/validate.js",
+    "test": "node --test",
+    "check": "npm run validate && npm test",
+    "prepack": "npm run check"
+  },
+  "keywords": [
+    "agent-skills",
+    "adversarial-review",
+    "ai-agents",
+    "claude-code",
+    "codex",
+    "cursor",
+    "multi-agent"
+  ],
+  "author": "Lzeutschler",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lzeutschler/bun-loop-skill.git"
+  },
+  "homepage": "https://github.com/Lzeutschler/bun-loop-skill#readme",
+  "bugs": {
+    "url": "https://github.com/Lzeutschler/bun-loop-skill/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
