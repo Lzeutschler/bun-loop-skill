@@ -55,9 +55,9 @@ The skill enforces six ideas:
   checks receive hard limits up front; exhausting a limit blocks the task instead
   of weakening a quality gate.
 
-See [EVALUATION.md](EVALUATION.md) for exploratory SWE-bench-derived comparisons
-against a single coding agent, including failed runs, prompt contamination,
-process cost, and known limitations.
+See [EVALUATION.md](EVALUATION.md) for the five-task blind SWE-bench Verified
+comparison against a single coding agent. The current result is negative: Bun Loop
+resolved 0/5 tasks versus 1/5 for the control while using about 4× the input tokens.
 
 ## Quick start
 
@@ -113,7 +113,7 @@ context capacity to complete the final review gate.
 | Runtime | Installer/package status | Full Bun Loop execution status |
 |---|---|---|
 | Claude Code | Layout covered; plugin manifests statically validated | Not yet smoke-tested in a real Claude runtime |
-| Codex | Layout covered; skill metadata validated | Exploratory forward runs completed, but one final review hit the runtime context limit |
+| Codex | Layout covered; skill metadata validated | Five paired blind runs completed with the official harness; Bun Loop resolved 0/5 versus 1/5 for the control |
 | Cursor | Layout covered | Not yet smoke-tested in a real Cursor runtime |
 | GitHub Copilot | Layout covered | Not yet smoke-tested in a real Copilot runtime |
 | OpenCode | Layout covered | Not yet smoke-tested in a real OpenCode runtime |
@@ -123,8 +123,9 @@ context capacity to complete the final review gate.
 
 Installation support cannot manufacture those orchestration capabilities. A runtime
 that cannot provide them must produce a capability blocker instead of simulating
-independent contexts. Until the rows above have real runtime smoke evidence, treat
-the project as a beta rather than a universal execution-compatibility claim.
+independent contexts. Runtime execution has been demonstrated in Codex, but the
+blind evaluation did not demonstrate an accuracy benefit. Treat the project as an
+experimental beta rather than a universal compatibility or quality claim.
 
 ## Other installation methods
 
@@ -224,6 +225,8 @@ skills/bun-loop-skill/   Canonical portable skill
 bin/install.js           User-facing installer CLI
 lib/installer.js         Runtime layouts and safe file operations
 scripts/validate.js      Repository and manifest validation
+scripts/*evaluation*     Blind-evaluation selection and prompt-boundary tools
+evaluation/              Machine-readable results and archived evaluation evidence
 tests/                   Installer regression tests
 .claude-plugin/          Claude plugin and marketplace metadata
 .github/                 CI and contribution templates

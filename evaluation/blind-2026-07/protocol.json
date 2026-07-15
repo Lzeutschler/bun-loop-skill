@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "task_prompt_renderer": "scripts/render_evaluation_prompt.js",
+  "task_prompt_fields": [
+    "problem_statement",
+    "repo",
+    "base_commit"
+  ],
+  "bun_loop_prefix": "Use $bun-loop-skill from /tmp/bun-loop-skill-under-test/SKILL.md to solve this task.\n\nFixed evaluation protocol:\n- Work exclusively in the current repository. Read no path outside it except /tmp/bun-loop-skill-under-test.\n- Do not inspect git history beyond HEAD, reflogs, remotes, the internet, benchmark datasets, test identifiers, evaluator artifacts, upstream patches, or other fixtures.\n- Do not commit, push, or add unrelated changes.\n- Use the default hard limit of at most three material fix rounds. Missing evidence remains a blocker.\n- Preserve the working-tree diff and report final state, commands, agent-context count, fix-round count, and blockers.",
+  "single_agent_prefix": "Solve this software task directly in one agent context. Do not use Bun Loop and do not delegate.\n\nFixed evaluation protocol:\n- Work exclusively in the current repository. Do not read or search any other path.\n- Do not inspect git history beyond HEAD, reflogs, remotes, the internet, benchmark datasets, test identifiers, evaluator artifacts, upstream patches, or other fixtures.\n- Do not commit, push, or add unrelated changes.\n- Run the strongest affordable targeted and integration checks.\n- Preserve the working-tree diff and report final state, commands, and blockers.",
+  "task_prompt_separator": "\n\n",
+  "coding_context": {
+    "fresh_ephemeral_root_per_variant": true,
+    "history_beyond_head": false,
+    "git_remote": false,
+    "internet": false,
+    "sibling_fixture_access": false
+  },
+  "qualification": "The templates record the prompts used, but the original access chronology was procedural and was not independently timestamped."
+}

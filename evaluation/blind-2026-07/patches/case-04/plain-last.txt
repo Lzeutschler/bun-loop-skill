@@ -1,0 +1,20 @@
+Implemented MRO-aware class marker collection.
+
+Changes:
+
+- Collects `pytestmark` from every class in the reversed MRO.
+- Prevents inherited markers from being copied when decorating subclasses.
+- Added a multiple-inheritance regression test.
+- Added `changelog/8127.bugfix.rst`.
+
+Validation:
+
+- Targeted inheritance tests: `3 passed`
+- `TestFunctional`: `13 passed`
+- Full `testing/test_mark.py`: `88 passed, 1 xfailed, 1 unrelated failure`
+- `compileall`: passed
+- `git diff --check`: passed
+
+The unrelated failure is a `-k` directory-selection test caused by running this older checkout through installed pytest 8.3.5. `mypy` and `black` were unavailable.
+
+Working tree contains only the intended three changed files; no commits were created.

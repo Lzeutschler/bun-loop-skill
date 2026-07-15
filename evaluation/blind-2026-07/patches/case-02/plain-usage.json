@@ -1,0 +1,7 @@
+{
+  "input_tokens": 313456,
+  "cached_input_tokens": 283392,
+  "output_tokens": 4271,
+  "reasoning_output_tokens": 1813,
+  "agent_contexts": 1
+}

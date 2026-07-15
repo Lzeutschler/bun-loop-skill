@@ -1,0 +1,9 @@
+{
+  "input_tokens": 2691937,
+  "cached_input_tokens": 2615296,
+  "output_tokens": 6846,
+  "reasoning_output_tokens": 1004,
+  "agent_contexts": 13,
+  "fix_rounds": 3,
+  "status": "blocked"
+}

@@ -1,0 +1,171 @@
+diff --git a/src/_pytest/mark/structures.py b/src/_pytest/mark/structures.py
+index 800a25c..d140c85 100644
+--- a/src/_pytest/mark/structures.py
++++ b/src/_pytest/mark/structures.py
+@@ -355,11 +355,46 @@ class MarkDecorator:
+         return self.with_args(*args, **kwargs)
+ 
+ 
+-def get_unpacked_marks(obj: object) -> Iterable[Mark]:
++def get_unpacked_marks(
++    obj: object, *, consider_mro: bool = True
++) -> Iterable[Mark]:
+     """Obtain the unpacked marks that are stored on an object."""
+-    mark_list = getattr(obj, "pytestmark", [])
+-    if not isinstance(mark_list, list):
+-        mark_list = [mark_list]
++    try:
++        mro = type.__dict__["__mro__"].__get__(obj, type(obj))
++    except TypeError:
++        mro = None
++    if mro is not None:
++        class_namespace = type.__dict__["__dict__"]
++        if not consider_mro:
++            mark_lists = [
++                class_namespace.__get__(obj, type(obj)).get("pytestmark", [])
++            ]
++        else:
++            # Read declarations directly from the canonical namespaces.  This
++            # avoids custom metaclass attribute access while retaining marks
++            # declared by metaclasses.  Metaclass declarations precede class
++            # declarations; both hierarchies are ordered base-to-derived.
++            metaclass = type(obj)
++            metaclass_mro = type.__dict__["__mro__"].__get__(
++                metaclass, type(metaclass)
++            )
++            mark_lists = [
++                class_namespace.__get__(base, type(base)).get("pytestmark", [])
++                for base in reversed(metaclass_mro)
++            ]
++            mark_lists.extend(
++                class_namespace.__get__(base, type(base)).get("pytestmark", [])
++                for base in reversed(mro)
++            )
++        mark_list = []
++        for item in mark_lists:
++            if not isinstance(item, list):
++                item = [item]
++            mark_list.extend(item)
++    else:
++        mark_list = getattr(obj, "pytestmark", [])
++        if not isinstance(mark_list, list):
++            mark_list = [mark_list]
+     return normalize_mark_list(mark_list)
+ 
+ 
+@@ -388,7 +423,7 @@ def store_mark(obj, mark: Mark) -> None:
+     assert isinstance(mark, Mark), mark
+     # Always reassign name to avoid updating pytestmark in a reference that
+     # was only borrowed.
+-    obj.pytestmark = [*get_unpacked_marks(obj), mark]
++    obj.pytestmark = [*get_unpacked_marks(obj, consider_mro=False), mark]
+ 
+ 
+ # Typing for builtin pytest marks. This is cheating; it gives builtin marks
+diff --git a/testing/test_mark.py b/testing/test_mark.py
+index 65f2581..a475f2d 100644
+--- a/testing/test_mark.py
++++ b/testing/test_mark.py
+@@ -561,6 +561,102 @@ class TestFunctional:
+         items, rec = pytester.inline_genitems(p)
+         self.assert_markers(items, test_foo=("a", "b", "c"), test_bar=("a", "b", "d"))
+ 
++    def test_mark_decorator_multiple_baseclasses_merged_in_mro_order(
++        self, pytester: Pytester
++    ) -> None:
++        pytester.makepyfile(
++            """
++            import pytest
++
++            @pytest.mark.m("root")
++            class Root: pass
++
++            @pytest.mark.m("foo")
++            class Foo(Root): pass
++
++            @pytest.mark.m("bar")
++            class Bar(Root): pass
++
++            @pytest.mark.m("test")
++            class TestClass(Foo, Bar):
++                def test_mark_order(self, request):
++                    assert [
++                        mark.args[0] for mark in request.node.iter_markers("m")
++                    ] == ["root", "bar", "foo", "test"]
++            """
++        )
++
++        result = pytester.runpytest()
++
++        result.assert_outcomes(passed=1)
++
++    def test_marks_with_metaclass_overriding_class_introspection(
++        self, pytester: Pytester
++    ) -> None:
++        path = pytester.makepyfile(
++            """
++            import pytest
++
++            class Meta(type):
++                pytestmark = pytest.mark.m("meta")
++
++                def __getattribute__(cls, name):
++                    if name == "pytestmark":
++                        return pytest.mark.m("dynamic-spoof")
++                    if name == "__mro__":
++                        return ()
++                    if name == "__dict__":
++                        namespace = dict(type.__getattribute__(cls, name))
++                        namespace["pytestmark"] = pytest.mark.m("spoof")
++                        return namespace
++                    return super().__getattribute__(name)
++
++            @pytest.mark.m("base")
++            class Base: pass
++
++            @pytest.mark.m("class")
++            class TestClass(Base, metaclass=Meta):
++                def test_marks(self): pass
++            """
++        )
++
++        items, _ = pytester.inline_genitems(path)
++
++        assert [mark.args[0] for mark in items[0].iter_markers("m")] == [
++            "meta",
++            "base",
++            "class",
++        ]
++
++    def test_marks_do_not_truth_test_mark_lists(self, pytester: Pytester) -> None:
++        path = pytester.makepyfile(
++            """
++            import pytest
++
++            class Marks(list):
++                def __bool__(self):
++                    raise AssertionError("mark lists must not be truth-tested")
++
++            shared = pytest.mark.m("shared")
++
++            class Meta(type):
++                pytestmark = Marks([pytest.mark.m("meta"), shared])
++
++            class TestClass(metaclass=Meta):
++                pytestmark = Marks([shared, pytest.mark.m("class")])
++                def test_marks(self): pass
++            """
++        )
++
++        items, _ = pytester.inline_genitems(path)
++
++        assert [mark.args[0] for mark in items[0].iter_markers("m")] == [
++            "meta",
++            "shared",
++            "shared",
++            "class",
++        ]
++
+     def test_mark_closest(self, pytester: Pytester) -> None:
+         p = pytester.makepyfile(
+             """

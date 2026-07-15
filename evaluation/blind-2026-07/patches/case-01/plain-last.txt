@@ -1,0 +1,24 @@
+Implemented precomputed CDFs for:
+
+- Arcsin, Dagum, Fréchet
+- Gamma/Erlang, inverse Gamma
+- Kumaraswamy, Laplace, Logistic
+- Nakagami, Student’s t, UniformSum
+
+Also fixed Erlang’s integer-rate handling so exact inputs produce exact results.
+
+Added regression coverage for every reported example.
+
+Validation completed:
+
+- All affected existing distribution tests passed.
+- New `test_precomputed_cdfs` passed.
+- `py_compile` and `git diff --check` passed.
+- Full module runner is blocked because this older SymPy version is incompatible with Python 3.11’s removed `collections.Mapping`; targeted tests ran with a runtime-only compatibility shim.
+
+Working tree contains only:
+
+- `sympy/stats/crv_types.py`
+- `sympy/stats/tests/test_continuous_rv.py`
+
+No commits were created.

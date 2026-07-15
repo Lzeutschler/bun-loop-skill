@@ -1,0 +1,17 @@
+Implemented direct Earth-fixed transformations:
+
+- Added ITRS ↔ AltAz and ITRS ↔ HADec transforms.
+- Uses topocentric ITRS positions and local rotation matrices.
+- Treats ITRS positions as time-invariant, avoiding inappropriate SSB-based self-transforms.
+- Registered the new transforms in the builtin frame graph.
+
+Checks:
+
+- `python3 -m py_compile ...` passed.
+- `git diff --check` passed.
+- Targeted pytest was blocked by missing environment dependencies: `setuptools_scm` and `erfa`.
+
+Working tree contains only:
+
+- Modified `astropy/coordinates/builtin_frames/__init__.py`
+- Added `astropy/coordinates/builtin_frames/itrs_observed_transforms.py`

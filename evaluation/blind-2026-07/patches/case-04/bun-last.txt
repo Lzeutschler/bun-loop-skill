@@ -1,0 +1,22 @@
+Implemented the multiple-inheritance marker fix and preserved the working-tree diff.
+
+Changes:
+
+- Collects class and metaclass marks through canonical MRO namespaces in deterministic base-to-derived order.
+- Preserves duplicate marker instances.
+- Prevents subclass decoration from copying inherited marks.
+- Avoids spoofed metaclass introspection and user-defined truthiness.
+- Adds multiple-inheritance, metaclass, duplicate, and marker-container regression tests.
+
+Final state:
+
+- HEAD: `3c1534944cbd34e8a41bc9e76818018fadefc9a1`
+- Modified: `src/_pytest/mark/structures.py`, `testing/test_mark.py`
+- Diff: 136 insertions, 5 deletions
+- Agent contexts: 9
+- Material fix rounds: 2 of 3
+- Final independent reviews: 2 × `CLEAN`
+- `git diff --check`: passed
+- `python3 -m compileall -q ...`: passed
+
+Blocker: repository-native tests cannot run because this checkout lacks `_pytest._py`. `PYTHONPATH=src python3 -m pytest ...` fails with `ModuleNotFoundError`; installed pytest does not exercise this patch and was excluded as evidence. Per the fixed protocol, runtime verification remains blocked rather than being reported as complete.

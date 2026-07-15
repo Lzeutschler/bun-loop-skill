@@ -1,0 +1,28 @@
+Implemented the `bad-names-rgxs` comma parsing fix.
+
+Changes:
+
+- `regexp_csv` now splits only on unescaped top-level commas.
+- Preserves commas inside quantifiers, groups, and character classes.
+- Supports escaped literal commas.
+- Preserves existing empty-field filtering.
+- Handles leading literal `]` in character classes.
+- Added focused regression tests in `tests/config/test_argument.py`.
+
+Final state:
+
+- Modified: `pylint/config/argument.py`
+- Added: `tests/config/test_argument.py`
+- Fix rounds: 1 of 3
+- Agent contexts: 6
+- Final adversarial reviews: 2 × `CLEAN`
+- No commits or unrelated changes.
+
+Verification:
+
+- `python3 -m py_compile pylint/config/argument.py tests/config/test_argument.py` — passed
+- `git diff --check` — passed
+- Isolated parser and matching round-trip checks — passed
+- `python3 -m pytest -q tests/config/test_argument.py` — blocked because `astroid` is not installed
+
+The working-tree diff has been preserved. The missing dependency is the only remaining verification blocker.

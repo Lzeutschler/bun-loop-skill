@@ -47,9 +47,21 @@ Inspect the repository and convert the request into a compact task contract befo
 delegating implementation. Record:
 
 - the objective and externally observable success criteria;
+- the primary contract, using this evidence order: explicit user acceptance
+  criteria; documented public behavior and the issue statement; baseline tests and
+  repository conventions, excluding behavior alleged to be defective; then
+  author-added tests. Record exact ordering, serialization, symbolic structure,
+  error behavior, and compatibility semantics where observable. If higher-ranked
+  evidence conflicts or leaves a material semantic choice unresolved, clarify with
+  the user instead of inventing the expected result;
 - in-scope and out-of-scope behavior;
 - a scope frontier naming allowed paths, public behaviors, dependencies, and the
-  conditions under which discovering new work requires user authorization;
+  conditions under which discovering new work requires user authorization. If a
+  writer discovers that the same contract requires a repository-owned shared
+  primitive or canonical state model outside its paths, it must stop and return
+  evidence. The orchestrator must amend path ownership before work resumes and
+  obtain user authorization whenever user scope, dependencies, or public behavior
+  would expand;
 - constraints, compatibility requirements, and forbidden shortcuts;
 - the supported input and environment domain, including which hostile or unusual
   values the public contract admits;
@@ -58,10 +70,17 @@ delegating implementation. Record:
 - material risks and relevant source artifacts;
 - the loop budget: maximum work items, material fix rounds per item, fresh agent
   contexts, and expensive verification runs, with the reason for each bound;
+- an item-specific patch-growth budget: expected owned paths and whether new public
+  abstractions or material diff growth require contract re-audit. Define material
+  using task-scale evidence rather than a universal line-count threshold;
 - a causal-surface map for each broken invariant: every operation that creates,
   mutates, serializes, or consumes the affected state, not only the crash site;
+- the repository-native authority for the behavior: shared parser, state model,
+  protocol implementation, or other abstraction, plus sibling frontends or
+  operations that consume it; record when no such authority exists;
 - a behavior matrix covering materially different input topologies, operation
-  modes, flags, and cross-operation round trips;
+  modes, flags, and cross-operation round trips, with negative compatibility
+  controls for inputs that must remain rejected or unchanged;
 - an ordered queue of bounded work items with owned paths and dependencies.
 
 Give each work item an identifier, objective, acceptance criteria, allowed paths,
@@ -83,6 +102,12 @@ the current work item, relevant source artifacts, allowed paths, and verificatio
 commands. Instruct the implementer to:
 
 - make the complete production change within the assigned scope;
+- for a defect, reproduce the primary failure first; for a refactor, migration, or
+  new behavior without a failing reproduction, establish an executable acceptance
+  example or before/after invariant instead;
+- extend the repository's authoritative abstraction when one exists and its paths
+  are assigned to this writer; otherwise stop for an amended contract. Do not
+  create a parallel parser, state model, or algorithm merely to keep the patch local;
 - repair the state transition that creates the invalid state, after inspecting
   sibling writers and inverse operations; do not merely sanitize the observed
   consumer or subtract stale bookkeeping at the crash site;
@@ -107,6 +132,9 @@ the contract, regresses behavior, or fails in use.
 Require reviewers to inspect, reason, and run read-only checks without editing.
 Prioritize, where relevant:
 
+- primary-contract fidelity before edge expansion: independently reconstruct the
+  required output, precedence, ordering, structure, and error behavior from the
+  task and baseline before considering author-added tests;
 - causal completeness: whether every producer of the violated invariant and each
   inverse or round-trip operation follows one coherent state model;
 - exact postconditions across the task contract's behavior matrix, including
@@ -117,6 +145,14 @@ Prioritize, where relevant:
 - concurrency, re-entrancy, lifetime, ownership, and async boundaries;
 - compatibility, security, performance, and resource regressions;
 - missing, misleading, disabled, or weakened tests.
+
+Treat author-added tests as evidence, never as the sole oracle. Require at least
+one direct check of the original reproduction, or the declared acceptance example
+or invariant when no reproduction exists, plus one independent derivation of the
+expected result. For symbolic trees, serialized forms, precedence rules, and
+ordered collections, mathematical or set equivalence is insufficient when callers
+observe exact structure or order. Verify that previously rejected inputs remain
+rejected unless the task explicitly changes that compatibility boundary.
 
 Keep findings inside the supported domain recorded in the task contract. Treat a
 hostile or unusual value as relevant only when the public API or established
@@ -180,6 +216,9 @@ After a clean review round, run the targeted verification commands against the
 current integrated working tree. Mark the item `done` only when:
 
 - every acceptance criterion is satisfied;
+- the original reproduction, or its declared acceptance example or invariant,
+  satisfies the exact primary contract, including observable structure and order
+  rather than only an equivalent end value;
 - the behavior matrix validates exact postconditions, not only green exit status
   or the original reproduction;
 - every required command passes, or an unavailable command is reported as a
@@ -203,6 +242,20 @@ Reject symptom patches that make one reproduction pass while leaving the same
 invalid state constructible through a sibling writer, inverse operation, flag, or
 input topology. Expand verification from the causal-surface map before accepting
 such a patch.
+
+Reject unrequested generalization of a narrow syntax, protocol, or compatibility
+change. A broader implementation must be required by the primary contract or by
+demonstrated repository architecture, and it must retain negative compatibility
+controls.
+
+Apply the task contract's complexity ratchet after every material fix: compare
+changed paths, diff size, new abstractions, and duplicated logic with both the
+previous round and the item-specific growth budget. Progress means closing a named
+acceptance criterion, primary failing check, accepted finding, or work item. If the
+patch exceeds its growth budget without such progress, or duplicates a
+repository-owned algorithm, stop fixing and re-audit the contract and authoritative
+abstraction. Amend the budget only with concrete evidence that the same user scope
+requires the growth. Review activity alone is not progress.
 
 Reject workaround code that needs a paragraph-length comment to argue that it is
 safe. Prefer code whose invariants are visible in its types, control flow, and
@@ -247,3 +300,8 @@ immediately instead when continuing would require new authority or unsafe action
 Also stop at any declared hard budget even when progress is measurable. Report
 progress separately from completion and never convert budget exhaustion into a
 clean result.
+
+When required verification cannot execute, distinguish missing runtime evidence
+from a code defect. Use an independent executable oracle when the repository
+provides one; otherwise block before spending repeated review rounds on speculative
+hardening. Adversarial reasoning cannot replace the primary behavioral gate.

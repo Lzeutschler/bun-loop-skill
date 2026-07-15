@@ -1,0 +1,21 @@
+Implemented the `bad-names-rgxs` comma parsing fix.
+
+Changes:
+
+- Regex lists now split only on top-level commas.
+- Commas inside groups, character classes, and quantifiers such as `(foo{1,3})` are preserved.
+- Escaped top-level commas remain supported.
+- Existing comma-separated regex lists continue working.
+- Added regression coverage for these cases.
+
+Validation:
+
+- `git diff --check` — passed
+- `python3 -m py_compile pylint/config/argument.py tests/config/test_config.py` — passed
+- Isolated splitter cases — passed
+- `python3 -m pytest tests/config/test_config.py -q` — blocked because `astroid` is not installed
+
+Working tree contains only:
+
+- [pylint/config/argument.py](/private/tmp/bun-loop-clean-eval/plain-case-05/repo/pylint/config/argument.py)
+- [tests/config/test_config.py](/private/tmp/bun-loop-clean-eval/plain-case-05/repo/tests/config/test_config.py)

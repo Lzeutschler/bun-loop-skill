@@ -1,0 +1,142 @@
+diff --git a/pylint/config/argument.py b/pylint/config/argument.py
+index 30a5fd1..315b01e 100644
+--- a/pylint/config/argument.py
++++ b/pylint/config/argument.py
+@@ -112,10 +112,68 @@ def _regex_transformer(value: str) -> Pattern[str]:
+ 
+ 
+ def _regexp_csv_transfomer(value: str) -> Sequence[Pattern[str]]:
+-    """Transforms a comma separated list of regular expressions."""
++    """Transform a comma separated list of regular expressions.
++
++    Only unescaped commas at the top level of a regular expression are list
++    separators. This preserves commas used by regex syntax, such as in
++    quantifiers, character classes, and groups. A literal top-level comma can
++    be written as ``\\,`` or ``[,]``.
++    """
++    pattern_start = 0
++    group_depth = 0
++    quantifier_end: int | None = None
++    in_character_class = False
++    character_class_can_close = False
++    character_class_at_start = False
++    escaped = False
+     patterns: list[Pattern[str]] = []
+-    for pattern in _csv_transformer(value):
+-        patterns.append(_regex_transformer(pattern))
++
++    def append_pattern(end: int) -> None:
++        pattern = value[pattern_start:end].strip()
++        if pattern:
++            patterns.append(_regex_transformer(pattern))
++
++    for index, character in enumerate(value):
++        if escaped:
++            escaped = False
++            continue
++        if character == "\\":
++            escaped = True
++            if in_character_class:
++                character_class_can_close = True
++                character_class_at_start = False
++            continue
++        if character == "[" and not in_character_class:
++            in_character_class = True
++            character_class_can_close = False
++            character_class_at_start = True
++        elif in_character_class:
++            if character == "]" and character_class_can_close:
++                in_character_class = False
++            elif character == "^" and character_class_at_start:
++                character_class_at_start = False
++            else:
++                # A closing bracket is literal in the first class position,
++                # including immediately after a leading negation marker.
++                character_class_can_close = True
++                character_class_at_start = False
++        elif not in_character_class:
++            if quantifier_end is not None:
++                if index == quantifier_end:
++                    quantifier_end = None
++            elif character == "(":
++                group_depth += 1
++            elif character == ")" and group_depth:
++                group_depth -= 1
++            elif character == "{":
++                quantifier = re.match(r"\{\d+(?:,\d*)?\}", value[index:])
++                if quantifier is not None:
++                    quantifier_end = index + quantifier.end() - 1
++            elif character == "," and not group_depth:
++                append_pattern(index)
++                pattern_start = index + 1
++
++    append_pattern(len(value))
+     return patterns
+ 
+ 
+diff --git a/tests/config/test_argument.py b/tests/config/test_argument.py
+new file mode 100644
+index 0000000..14ac174
+--- /dev/null
++++ b/tests/config/test_argument.py
+@@ -0,0 +1,60 @@
++# Licensed under the GPL: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
++# For details: https://github.com/pylint-dev/pylint/blob/main/LICENSE
++# Copyright (c) https://github.com/pylint-dev/pylint/blob/main/CONTRIBUTORS.txt
++
++"""Tests for configuration argument transformers."""
++
++import argparse
++
++import pytest
++
++from pylint.config.argument import _regexp_csv_transfomer
++
++
++@pytest.mark.parametrize(
++    ("value", "expected_patterns"),
++    [
++        ("(foo{1,3})", ["(foo{1,3})"]),
++        ("foo,bar", ["foo", "bar"]),
++        (r"foo\,bar", [r"foo\,bar"]),
++        ("foo[,]bar", ["foo[,]bar"]),
++        ("(foo,bar)", ["(foo,bar)"]),
++        ("foo{1,3},bar[,],(baz,quux)", ["foo{1,3}", "bar[,]", "(baz,quux)"]),
++        ("]a", ["]a"]),
++        ("[]a,]", ["[]a,]"]),
++        ("[^],]", ["[^],]"]),
++        ("[]a,],foo", ["[]a,]", "foo"]),
++        ("foo{,bar", ["foo{", "bar"]),
++        ("foo{x,y", ["foo{x", "y"]),
++        ("foo{1,x},bar", ["foo{1", "x}", "bar"]),
++    ],
++)
++def test_regexp_csv_transformer(
++    value: str, expected_patterns: list[str]
++) -> None:
++    """Regex syntax containing commas is not treated as a list separator."""
++    patterns = _regexp_csv_transfomer(value)
++
++    assert [pattern.pattern for pattern in patterns] == expected_patterns
++
++
++@pytest.mark.parametrize("value", ["", "   ", ",foo", "foo,", "foo,,bar", " , , "])
++def test_regexp_csv_transformer_ignores_empty_fields(value: str) -> None:
++    """Empty and whitespace-only CSV fields do not create empty regexes."""
++    expected = [part.strip() for part in value.split(",") if part.strip()]
++
++    assert [pattern.pattern for pattern in _regexp_csv_transfomer(value)] == expected
++
++
++def test_regexp_csv_transformer_compiles_patterns() -> None:
++    """A comma-bearing quantifier retains its matching behavior."""
++    (pattern,) = _regexp_csv_transfomer("(foo{1,3})")
++
++    assert pattern.fullmatch("fooo")
++    assert not pattern.fullmatch("fooooo")
++
++
++def test_regexp_csv_transformer_invalid_regex() -> None:
++    """Invalid regular expressions retain the public argparse error type."""
++    with pytest.raises(argparse.ArgumentTypeError):
++        _regexp_csv_transfomer("foo([")

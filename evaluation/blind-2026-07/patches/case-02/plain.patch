@@ -1,0 +1,119 @@
+diff --git a/sphinx/domains/cpp.py b/sphinx/domains/cpp.py
+index fe52d88..59eaa52 100644
+--- a/sphinx/domains/cpp.py
++++ b/sphinx/domains/cpp.py
+@@ -789,6 +789,23 @@ class ASTLiteral(ASTExpression):
+     pass
+ 
+ 
++class ASTUserDefinedLiteral(ASTLiteral):
++    def __init__(self, literal: ASTLiteral, suffix: "ASTIdentifier") -> None:
++        self.literal = literal
++        self.suffix = suffix
++
++    def _stringify(self, transform: StringifyTransform) -> str:
++        return transform(self.literal) + transform(self.suffix)
++
++    def get_id(self, version: int) -> str:
++        return self.literal.get_id(version) + self.suffix.get_id(version)
++
++    def describe_signature(self, signode: TextElement, mode: str,
++                           env: "BuildEnvironment", symbol: "Symbol") -> None:
++        txt = str(self)
++        signode.append(nodes.Text(txt, txt))
++
++
+ class ASTPointerLiteral(ASTLiteral):
+     def _stringify(self, transform: StringifyTransform) -> str:
+         return 'nullptr'
+@@ -4658,31 +4675,38 @@ class DefinitionParser(BaseParser):
+             return ASTBooleanLiteral(True)
+         if self.skip_word('false'):
+             return ASTBooleanLiteral(False)
++
++        def user_defined(literal: ASTLiteral) -> ASTLiteral:
++            if self.match(identifier_re):
++                return ASTUserDefinedLiteral(
++                    literal, ASTIdentifier(self.matched_text))
++            return literal
++
+         for regex in [float_literal_re, binary_literal_re, hex_literal_re,
+                       integer_literal_re, octal_literal_re]:
+             pos = self.pos
+             if self.match(regex):
+                 while self.current_char in 'uUlLfF':
+                     self.pos += 1
+-                return ASTNumberLiteral(self.definition[pos:self.pos])
++                literal = ASTNumberLiteral(self.definition[pos:self.pos])
++                return user_defined(literal)
+ 
+         string = self._parse_string()
+         if string is not None:
+-            return ASTStringLiteral(string)
++            return user_defined(ASTStringLiteral(string))
+ 
+         # character-literal
+         if self.match(char_literal_re):
+             prefix = self.last_match.group(1)  # may be None when no prefix
+             data = self.last_match.group(2)
+             try:
+-                return ASTCharLiteral(prefix, data)
++                return user_defined(ASTCharLiteral(prefix, data))
+             except UnicodeDecodeError as e:
+                 self.fail("Can not handle character literal. Internal error was: %s" % e)
+             except UnsupportedMultiCharacterCharLiteral:
+                 self.fail("Can not handle character literal"
+                           " resulting in multiple decoded characters.")
+ 
+-        # TODO: user-defined lit
+         return None
+ 
+     def _parse_fold_or_paren_expression(self) -> ASTExpression:
+diff --git a/tests/test_domain_cpp.py b/tests/test_domain_cpp.py
+index 9db741a..c8a1965 100644
+--- a/tests/test_domain_cpp.py
++++ b/tests/test_domain_cpp.py
+@@ -111,6 +111,10 @@ def test_fundamental_types():
+ 
+ 
+ def test_expressions():
++    class Config:
++        cpp_id_attributes = ["id_attr"]
++        cpp_paren_attributes = ["paren_attr"]
++
+     def exprCheck(expr, id, id4=None):
+         ids = 'IE1CIA%s_1aE'
+         idDict = {2: ids % expr, 3: ids % id}
+@@ -118,10 +122,6 @@ def test_expressions():
+             idDict[4] = ids % id4
+         check('class', 'template<> C<a[%s]>' % expr, idDict)
+ 
+-        class Config:
+-            cpp_id_attributes = ["id_attr"]
+-            cpp_paren_attributes = ["paren_attr"]
+-
+         parser = DefinitionParser(expr, location=None,
+                                   config=Config())
+         parser.allowFallbackExpressionParsing = False
+@@ -176,7 +176,20 @@ def test_expressions():
+         exprCheck(p + "'\\U0001f34c'", t + "127820")
+         exprCheck(p + "'\\U0001F34C'", t + "127820")
+ 
+-    # TODO: user-defined lit
++    # user-defined literals
++    for expr in ['1q_s', '6.62607015e-34q_J', '0x12_ab', '0b10_bits',
++                 "'x'_tag", '"abc"_tag']:
++        parser = DefinitionParser(expr, location=None, config=Config())
++        parser.allowFallbackExpressionParsing = False
++        ast = parser.parse_expression()
++        parser.assert_end()
++        assert str(ast) == expr
++
++    check('member',
++          'constexpr auto units::si::planck_constant = '
++          '6.62607015e-34q_J * 1q_s',
++          {2: 'N5units2si15planck_constantE'})
++
+     exprCheck('(... + Ns)', '(... + Ns)', id4='flpl2Ns')
+     exprCheck('(Ns + ...)', '(Ns + ...)', id4='frpl2Ns')
+     exprCheck('(Ns + ... + 0)', '(Ns + ... + 0)', id4='fLpl2NsL0E')

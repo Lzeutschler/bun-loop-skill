@@ -1,0 +1,343 @@
+diff --git a/astropy/coordinates/builtin_frames/__init__.py b/astropy/coordinates/builtin_frames/__init__.py
+index 6fd688c..1d6e1a9 100644
+--- a/astropy/coordinates/builtin_frames/__init__.py
++++ b/astropy/coordinates/builtin_frames/__init__.py
+@@ -47,6 +47,7 @@ from . import galactic_transforms
+ from . import supergalactic_transforms
+ from . import icrs_cirs_transforms
+ from . import cirs_observed_transforms
++from . import itrs_observed_transforms
+ from . import icrs_observed_transforms
+ from . import intermediate_rotation_transforms
+ from . import ecliptic_transforms
+diff --git a/astropy/coordinates/builtin_frames/itrs_observed_transforms.py b/astropy/coordinates/builtin_frames/itrs_observed_transforms.py
+new file mode 100644
+index 0000000..ee49c00
+--- /dev/null
++++ b/astropy/coordinates/builtin_frames/itrs_observed_transforms.py
+@@ -0,0 +1,165 @@
++# Licensed under a 3-clause BSD style license - see LICENSE.rst
++"""Transformations between ITRS and topocentric observed frames."""
++
++import numpy as np
++import erfa
++
++from astropy import units as u
++
++from astropy.coordinates.baseframe import frame_transform_graph
++from astropy.coordinates.matrix_utilities import matrix_transpose
++from astropy.coordinates.representation import CartesianRepresentation
++from astropy.coordinates.transformations import FunctionTransformWithFiniteDifference
++
++from .altaz import AltAz
++from .hadec import HADec
++from .itrs import ITRS
++
++
++def _itrs_to_observed_mat(observed_frame):
++    """Return the terrestrial-to-local Cartesian matrix.
++
++    The matrix is built from geodetic longitude and latitude, so unlike the
++    celestial intermediate matrices it needs no time.  AltAz Cartesian axes
++    are north, east, and up.  HADec axes point along the local meridian,
++    westward, and toward the terrestrial north pole.
++    """
++    lon = observed_frame.location.lon.to_value(u.radian)
++    lat = observed_frame.location.lat.to_value(u.radian)
++    lon, lat = np.broadcast_arrays(lon, lat)
++    slon, clon = np.sin(lon), np.cos(lon)
++    slat, clat = np.sin(lat), np.cos(lat)
++
++    mat = np.empty(lon.shape + (3, 3))
++    if isinstance(observed_frame, AltAz):
++        mat[..., 0, :] = np.stack((-slat * clon, -slat * slon, clat), axis=-1)
++        mat[..., 1, :] = np.stack((-slon, clon, np.zeros_like(clon)), axis=-1)
++        mat[..., 2, :] = np.stack((clat * clon, clat * slon, slat), axis=-1)
++    else:
++        mat[..., 0, :] = np.stack((clon, slon, np.zeros_like(clon)), axis=-1)
++        mat[..., 1, :] = np.stack((slon, -clon, np.zeros_like(clon)), axis=-1)
++        mat[..., 2, :] = np.stack((np.zeros_like(clon), np.zeros_like(clon),
++                                   np.ones_like(clon)), axis=-1)
++    return mat
++
++
++def _has_length(coo):
++    """Whether a coordinate is a physical position rather than a direction."""
++    return coo.cartesian.x.unit.is_equivalent(u.m)
++
++
++def _translate(cartesian, observer, operation):
++    """Translate a Cartesian representation without dropping differentials."""
++    differentials = cartesian.differentials
++    translated = operation(cartesian.without_differentials(), observer)
++    return translated.with_differentials(differentials)
++
++
++def _altaz_mat(observed_frame):
++    """Terrestrial-to-AltAz matrix, including for an HADec frame."""
++    if isinstance(observed_frame, AltAz):
++        return _itrs_to_observed_mat(observed_frame)
++    return _itrs_to_observed_mat(
++        AltAz(location=observed_frame.location, obstime=observed_frame.obstime))
++
++
++def _refract_altaz(cartesian, observed_frame, inverse=False):
++    """Apply or remove ERFA refraction from local AltAz Cartesian data."""
++    pressure, temperature, humidity, wavelength = np.broadcast_arrays(
++        observed_frame.pressure.to_value(u.hPa),
++        observed_frame.temperature.to_value(u.deg_C),
++        observed_frame.relative_humidity.value,
++        observed_frame.obswl.to_value(u.micron),
++    )
++    refa, refb = erfa.refco(pressure, temperature, humidity, wavelength)
++
++    xyz = cartesian.xyz
++    distance = np.sqrt(np.sum(xyz * xyz, axis=0))
++    az = np.arctan2(xyz[1], xyz[0])
++    zenith = np.arctan2(np.hypot(xyz[0], xyz[1]), xyz[2])
++    distance, az, zenith, refa, refb = np.broadcast_arrays(
++        distance, az, zenith, refa, refb)
++    if inverse:
++        # REFZ maps unrefracted to observed zenith distance.  Its derivative
++        # is close to unity, so fixed-point inversion converges rapidly while
++        # retaining REFZ's well-behaved low-altitude limiting convention.
++        observed_zenith = zenith
++        for _ in range(5):
++            zenith = zenith + observed_zenith - erfa.refz(zenith, refa, refb)
++    else:
++        zenith = erfa.refz(zenith, refa, refb)
++
++    sinzen = np.sin(zenith)
++    return CartesianRepresentation(
++        distance * sinzen * np.cos(az),
++        distance * sinzen * np.sin(az),
++        distance * np.cos(zenith), copy=False)
++
++
++@frame_transform_graph.transform(FunctionTransformWithFiniteDifference, ITRS, AltAz,
++                                 finite_difference_frameattr_name=None)
++@frame_transform_graph.transform(FunctionTransformWithFiniteDifference, ITRS, HADec,
++                                 finite_difference_frameattr_name=None)
++def itrs_to_observed(itrs_coo, observed_frame):
++    """Transform an ITRS position to an observed frame geometrically.
++
++    ITRS coordinates are treated as Earth-fixed positions.  In particular, we
++    must not transform them to a different obstime through a celestial frame:
++    that would interpret a terrestrial position as an object moving through
++    the solar system.
++    """
++    topocentric_itrs = itrs_coo.cartesian
++    if _has_length(itrs_coo):
++        observer = observed_frame.location.get_itrs(
++            obstime=observed_frame.obstime).cartesian
++        topocentric_itrs = _translate(topocentric_itrs, observer,
++                                      lambda position, origin: position - origin)
++
++    if np.all(observed_frame.pressure == 0):
++        return observed_frame.realize_frame(
++            topocentric_itrs.transform(_itrs_to_observed_mat(observed_frame)))
++
++    altaz_mat = _altaz_mat(observed_frame)
++    local_altaz = topocentric_itrs.transform(altaz_mat)
++    refracted_altaz = _refract_altaz(local_altaz, observed_frame)
++    if isinstance(observed_frame, HADec):
++        refracted_itrs = refracted_altaz.transform(matrix_transpose(altaz_mat))
++        result = refracted_itrs.transform(_itrs_to_observed_mat(observed_frame))
++    else:
++        result = refracted_altaz
++    return observed_frame.realize_frame(result)
++
++
++@frame_transform_graph.transform(FunctionTransformWithFiniteDifference, AltAz, ITRS,
++                                 finite_difference_frameattr_name=None)
++@frame_transform_graph.transform(FunctionTransformWithFiniteDifference, HADec, ITRS,
++                                 finite_difference_frameattr_name=None)
++def observed_to_itrs(observed_coo, itrs_frame):
++    """Transform a topocentric observed coordinate directly to ITRS."""
++    if np.all(observed_coo.pressure == 0):
++        topocentric_itrs = observed_coo.cartesian.transform(
++            matrix_transpose(_itrs_to_observed_mat(observed_coo)))
++        if _has_length(observed_coo):
++            observer = observed_coo.location.get_itrs(
++                obstime=observed_coo.obstime).cartesian
++            topocentric_itrs = _translate(
++                topocentric_itrs, observer,
++                lambda position, origin: position + origin)
++        return itrs_frame.realize_frame(topocentric_itrs)
++
++    altaz_mat = _altaz_mat(observed_coo)
++    if isinstance(observed_coo, HADec):
++        local_itrs = observed_coo.cartesian.transform(
++            matrix_transpose(_itrs_to_observed_mat(observed_coo)))
++        local_altaz = local_itrs.transform(altaz_mat)
++    else:
++        local_altaz = observed_coo.cartesian
++    unrefracted_altaz = _refract_altaz(local_altaz, observed_coo, inverse=True)
++    topocentric_itrs = unrefracted_altaz.transform(matrix_transpose(altaz_mat))
++    if _has_length(observed_coo):
++        observer = observed_coo.location.get_itrs(
++            obstime=observed_coo.obstime).cartesian
++        topocentric_itrs = _translate(
++            topocentric_itrs, observer,
++            lambda position, origin: position + origin)
++    return itrs_frame.realize_frame(topocentric_itrs)
+diff --git a/astropy/coordinates/tests/test_intermediate_transformations.py b/astropy/coordinates/tests/test_intermediate_transformations.py
+index 007ccc0..b090e42 100644
+--- a/astropy/coordinates/tests/test_intermediate_transformations.py
++++ b/astropy/coordinates/tests/test_intermediate_transformations.py
+@@ -29,6 +29,7 @@ from astropy.coordinates.builtin_frames.intermediate_rotation_transforms import
+ from astropy.coordinates.builtin_frames.utils import get_jd12
+ from astropy.coordinates import solar_system_ephemeris
+ from astropy.units import allclose
++from astropy.coordinates.baseframe import frame_transform_graph
+ 
+ CI = os.environ.get('CI', False) == "true"
+ 
+@@ -928,3 +929,147 @@ class TestGetLocationGCRS:
+         loc_gcrs_frame = get_location_gcrs(self.loc, self.obstime,
+                                            cirs_to_itrs_mat(cirs_frame.obstime), pmat)
+         self.check_obsgeo(loc_gcrs_frame.obsgeoloc, loc_gcrs_frame.obsgeovel)
++
++
++def test_direct_itrs_observed_graph_edges():
++    for source, target in ((ITRS, AltAz), (ITRS, HADec),
++                           (AltAz, ITRS), (HADec, ITRS)):
++        assert len(frame_transform_graph.get_transform(source, target).transforms) == 1
++
++
++@pytest.mark.parametrize("observed_cls", [AltAz, HADec])
++@pytest.mark.parametrize("obstime", [None, Time("J2007")])
++def test_direct_itrs_observed_geometry(observed_cls, obstime):
++    location = EarthLocation.from_geodetic(23*u.deg, 47*u.deg, 350*u.m)
++    lon, lat = location.lon.to_value(u.rad), location.lat.to_value(u.rad)
++    up = CartesianRepresentation(np.cos(lat)*np.cos(lon),
++                                 np.cos(lat)*np.sin(lon), np.sin(lat))
++    frame = observed_cls(location=location, obstime=obstime)
++    unit_direction = UnitSphericalRepresentation(lon=lon*u.rad, lat=lat*u.rad)
++    direction = ITRS(unit_direction, obstime=Time("J2020")).transform_to(frame)
++    if observed_cls is AltAz:
++        assert_allclose(direction.alt, 90*u.deg, atol=1*u.narcsec)
++    else:
++        assert_allclose(direction.ha, 0*u.deg, atol=1*u.narcsec)
++        assert_allclose(direction.dec, location.lat, atol=1*u.narcsec)
++    direction_back = direction.transform_to(ITRS(obstime=None))
++    assert_allclose(direction_back.cartesian.xyz, up.xyz, atol=1e-14*u.one)
++    assert direction_back.obstime is None
++
++    position = location.get_itrs(obstime=obstime).cartesian + up * (2*u.km)
++    observed = ITRS(position, obstime=Time("J1990")).transform_to(frame)
++    assert_allclose(observed.distance, 2*u.km, atol=1*u.nm)
++    position_back = observed.transform_to(ITRS(obstime=None))
++    assert_allclose(position_back.cartesian.xyz, position.xyz, atol=1*u.nm)
++
++
++def test_direct_itrs_altaz_refraction_and_vector_differential():
++    location = EarthLocation.from_geodetic(-70*u.deg, 25*u.deg)
++    time = Time("J2015")
++    vacuum = AltAz(az=[20, 120]*u.deg, alt=[20, 45]*u.deg,
++                   distance=[1, 2]*u.km, obstime=time, location=location)
++    itrs = vacuum.transform_to(ITRS(obstime=Time("J2000")))
++    refracted = itrs.transform_to(AltAz(obstime=time, location=location,
++                                        pressure=800*u.hPa))
++    assert np.all(refracted.alt > vacuum.alt)
++
++    cart = itrs.cartesian.with_differentials(
++        CartesianDifferential([1, 2]*u.m/u.s, [3, 4]*u.m/u.s,
++                              [5, 6]*u.m/u.s))
++    moving = ITRS(cart, obstime=time).transform_to(
++        AltAz(obstime=None, location=location))
++    roundtrip = moving.transform_to(ITRS(obstime=None))
++    assert_allclose(roundtrip.cartesian.xyz, cart.xyz, atol=1*u.nm)
++    assert_allclose(roundtrip.velocity.d_xyz, cart.differentials["s"].d_xyz,
++                    atol=1*u.nm/u.s)
++
++    moving_refracted = ITRS(cart, obstime=time).transform_to(
++        AltAz(obstime=None, location=location, pressure=800*u.hPa))
++    refracted_roundtrip = moving_refracted.transform_to(ITRS(obstime=None))
++    assert_allclose(refracted_roundtrip.cartesian.xyz, cart.xyz,
++                    atol=1*u.nm)
++    assert_allclose(refracted_roundtrip.velocity.d_xyz,
++                    cart.differentials["s"].d_xyz, atol=1*u.um/u.s)
++
++
++@pytest.mark.parametrize("observed_cls", [AltAz, HADec])
++def test_direct_itrs_observed_refraction_arrays_without_time(observed_cls):
++    location = EarthLocation.from_geodetic(-70*u.deg, 25*u.deg)
++    if observed_cls is AltAz:
++        vacuum = AltAz(az=[20, 120]*u.deg, alt=[20, 45]*u.deg,
++                       obstime=None, location=location)
++    else:
++        vacuum = HADec(ha=[-30, 20]*u.deg, dec=[5, 35]*u.deg,
++                       obstime=None, location=location)
++
++    itrs = vacuum.transform_to(ITRS(obstime=None))
++    apparent_frame = observed_cls(
++        obstime=None, location=location, pressure=[0, 800]*u.hPa,
++        temperature=[10, 10]*u.deg_C,
++        relative_humidity=[0.5, 0.5], obswl=[0.55, 0.55]*u.micron)
++    apparent = itrs.transform_to(apparent_frame)
++
++    if observed_cls is AltAz:
++        vacuum_alt = vacuum.alt
++        apparent_alt = apparent.alt
++        assert_allclose(apparent.az, vacuum.az, atol=1*u.narcsec)
++    else:
++        lat = location.lat
++        vacuum_alt = np.arcsin(
++            np.sin(lat) * np.sin(vacuum.dec)
++            + np.cos(lat) * np.cos(vacuum.dec) * np.cos(vacuum.ha))
++        apparent_alt = np.arcsin(
++            np.sin(lat) * np.sin(apparent.dec)
++            + np.cos(lat) * np.cos(apparent.dec) * np.cos(apparent.ha))
++
++    assert_allclose(apparent_alt[0], vacuum_alt[0], atol=1*u.narcsec)
++    assert apparent_alt[1] > vacuum_alt[1]
++    roundtrip = apparent.transform_to(ITRS(obstime=None))
++    assert_allclose(roundtrip.cartesian.xyz, itrs.cartesian.xyz, atol=2e-12*u.one)
++
++
++@pytest.mark.parametrize("observed_cls", [AltAz, HADec])
++def test_direct_itrs_observed_refraction_broadcast_expansion(observed_cls):
++    location = EarthLocation.from_geodetic(-70*u.deg, 25*u.deg)
++    vacuum_altaz = AltAz(az=73*u.deg, alt=18*u.deg,
++                         obstime=None, location=location)
++    itrs = vacuum_altaz.transform_to(ITRS(obstime=None))
++    vacuum = itrs.transform_to(observed_cls(obstime=None, location=location))
++    apparent = itrs.transform_to(observed_cls(
++        obstime=None, location=location, pressure=[0, 400, 800]*u.hPa))
++
++    assert apparent.shape == (3,)
++    roundtrip = apparent.transform_to(ITRS(obstime=None))
++    expected = np.broadcast_to(itrs.cartesian.xyz[:, np.newaxis], (3, 3),
++                               subok=True)
++    assert_allclose(roundtrip.cartesian.xyz, expected, atol=2e-12*u.one)
++    if observed_cls is AltAz:
++        assert_allclose(apparent.az, vacuum.az, atol=1*u.narcsec)
++
++
++@pytest.mark.parametrize("observed_cls", [AltAz, HADec])
++def test_direct_itrs_observed_refraction_against_cirs_erfa(observed_cls):
++    """Check direct refraction against the established ERFA observed path."""
++    location = EarthLocation.from_geodetic(-70*u.deg, 25*u.deg)
++    time = Time("J2015")
++    vacuum_altaz = AltAz(az=[37, 123, 251]*u.deg, alt=[5, 20, 65]*u.deg,
++                         obstime=time, location=location)
++    itrs = vacuum_altaz.transform_to(ITRS(obstime=time))
++    vacuum = itrs.transform_to(observed_cls(obstime=time, location=location))
++    apparent_frame = observed_cls(
++        obstime=time, location=location, pressure=800*u.hPa,
++        temperature=10*u.deg_C, relative_humidity=0.5,
++        obswl=0.55*u.micron)
++
++    direct = itrs.transform_to(apparent_frame)
++    # CIRS<->observed uses ERFA atioq/atoiq and is independent of the new edge.
++    oracle = vacuum.transform_to(CIRS(obstime=time, location=location)).transform_to(
++        apparent_frame)
++    assert_allclose(direct.spherical.lon, oracle.spherical.lon,
++                    atol=2*u.narcsec)
++    assert_allclose(direct.spherical.lat, oracle.spherical.lat,
++                    atol=2*u.narcsec)
++
++    direct_back = direct.transform_to(ITRS(obstime=time))
++    assert_allclose(direct_back.cartesian.xyz, itrs.cartesian.xyz,
++                    atol=2e-12*u.one)

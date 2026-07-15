@@ -17,6 +17,18 @@ the project intends to follow [Semantic Versioning](https://semver.org/).
   directory.
 - Correct the evaluation report to disclose leaked evaluator-category hints and to
   stop presenting local outcomes as blind or official SWE-bench scores.
+- Add a clean three-field evaluation-prompt boundary and post-seal prediction
+  builder for repeatable blind SWE-bench comparisons.
+- Report a five-task official Docker-harness evaluation honestly: Bun Loop resolved
+  0/5 tasks versus 1/5 for the single-agent control at roughly four times the input
+  token cost.
+- Prioritize exact primary-contract fidelity, repository-owned abstractions, and
+  negative compatibility controls before adversarial edge expansion.
+- Add a complexity ratchet and stop speculative review rounds when executable
+  primary evidence is unavailable.
+- Archive the clean manifest, sealed candidates, usage records, predictions, and
+  official reports; pin the dataset revision and verify future post-seal prediction
+  builds against SHA-256 hashes.
 
 ## [0.2.0] - 2026-07-15
 

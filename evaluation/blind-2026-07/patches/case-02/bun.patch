@@ -1,0 +1,206 @@
+diff --git a/sphinx/domains/cpp.py b/sphinx/domains/cpp.py
+index fe52d88..30179e6 100644
+--- a/sphinx/domains/cpp.py
++++ b/sphinx/domains/cpp.py
+@@ -45,6 +45,12 @@ from sphinx.util.nodes import make_refnode
+ logger = logging.getLogger(__name__)
+ T = TypeVar('T')
+ 
++# Unlike identifier_re, a ud-suffix is an ordinary C++ identifier.  In
++# particular, Sphinx's anonymous-name extension and destructor spelling are
++# not valid here.  Do not require a leading word boundary: a ud-suffix is
++# adjacent to the preceding literal token.
++_ud_suffix_re = re.compile(r'[a-zA-Z_][a-zA-Z0-9_]*\b')
++
+ """
+     Important note on ids
+     ----------------------------------------------------------------------------
+@@ -847,7 +853,10 @@ class ASTStringLiteral(ASTLiteral):
+ 
+     def get_id(self, version: int) -> str:
+         # note: the length is not really correct with escaping
+-        return "LA%d_KcE" % (len(self.data) - 2)
++        quote = self.data.index('"')
++        prefix = self.data[:quote] or None
++        return "LA%d_K%sE" % (len(self.data) - quote - 2,
++                              _id_char_from_prefix[prefix])
+ 
+     def describe_signature(self, signode: TextElement, mode: str,
+                            env: "BuildEnvironment", symbol: "Symbol") -> None:
+@@ -882,6 +891,27 @@ class ASTCharLiteral(ASTLiteral):
+         signode.append(nodes.Text(txt, txt))
+ 
+ 
++class ASTUserDefinedLiteral(ASTLiteral):
++    def __init__(self, literal: ASTLiteral, suffix: ASTIdentifier) -> None:
++        self.literal = literal
++        self.suffix = suffix
++
++    def _stringify(self, transform: StringifyTransform) -> str:
++        return transform(self.literal) + transform(self.suffix)
++
++    def get_id(self, version: int) -> str:
++        if version == 1:
++            raise NoOldIdError()
++        # A user-defined literal is a call to its literal operator.
++        return ('clli' + self.suffix.get_id(version)
++                + self.literal.get_id(version) + 'E')
++
++    def describe_signature(self, signode: TextElement, mode: str,
++                           env: "BuildEnvironment", symbol: "Symbol") -> None:
++        self.literal.describe_signature(signode, mode, env, symbol)
++        signode.append(nodes.Text(str(self.suffix)))
++
++
+ class ASTThisLiteral(ASTExpression):
+     def _stringify(self, transform: StringifyTransform) -> str:
+         return "this"
+@@ -4658,31 +4688,68 @@ class DefinitionParser(BaseParser):
+             return ASTBooleanLiteral(True)
+         if self.skip_word('false'):
+             return ASTBooleanLiteral(False)
++
++        def user_defined(literal: ASTLiteral) -> ASTLiteral:
++            # There may be no whitespace between the literal and its suffix.
++            if self.match(_ud_suffix_re):
++                return ASTUserDefinedLiteral(
++                    literal, ASTIdentifier(self.matched_text))
++            return literal
++
++        # Do not let the octal literal ``0`` consume the start of an
++        # incomplete hexadecimal or binary literal.
++        if (self.definition.startswith(('0x', '0X'), self.pos)
++                and not (hex_literal_re.match(self.definition, self.pos)
++                         or float_literal_re.match(self.definition, self.pos))):
++            return None
++        if (self.definition.startswith(('0b', '0B'), self.pos)
++                and not binary_literal_re.match(self.definition, self.pos)):
++            return None
++
+         for regex in [float_literal_re, binary_literal_re, hex_literal_re,
+                       integer_literal_re, octal_literal_re]:
+             pos = self.pos
+             if self.match(regex):
+-                while self.current_char in 'uUlLfF':
+-                    self.pos += 1
++                suffix_pos = self.pos
++                if self.match(_ud_suffix_re):
++                    suffix = self.matched_text
++                    if regex is float_literal_re:
++                        builtin = re.fullmatch(r'[fFlL]', suffix)
++                    else:
++                        builtin = re.fullmatch(
++                            r'(?:[uU](?:(?:ll|LL)|[lL])?'
++                            r'|(?:(?:ll|LL)|[lL])[uU]?)', suffix)
++                    if builtin:
++                        return ASTNumberLiteral(self.definition[pos:self.pos])
++                    literal = ASTNumberLiteral(
++                        self.definition[pos:suffix_pos])
++                    return ASTUserDefinedLiteral(
++                        literal, ASTIdentifier(suffix))
+                 return ASTNumberLiteral(self.definition[pos:self.pos])
+ 
++        string_pos = self.pos
++        prefix = ''
++        for candidate in ('u8', 'u', 'U', 'L'):
++            if self.definition.startswith(candidate + '"', self.pos):
++                prefix = candidate
++                self.pos += len(candidate)
++                break
+         string = self._parse_string()
+         if string is not None:
+-            return ASTStringLiteral(string)
++            return user_defined(ASTStringLiteral(prefix + string))
++        self.pos = string_pos
+ 
+         # character-literal
+         if self.match(char_literal_re):
+             prefix = self.last_match.group(1)  # may be None when no prefix
+             data = self.last_match.group(2)
+             try:
+-                return ASTCharLiteral(prefix, data)
++                return user_defined(ASTCharLiteral(prefix, data))
+             except UnicodeDecodeError as e:
+                 self.fail("Can not handle character literal. Internal error was: %s" % e)
+             except UnsupportedMultiCharacterCharLiteral:
+                 self.fail("Can not handle character literal"
+                           " resulting in multiple decoded characters.")
+-
+-        # TODO: user-defined lit
+         return None
+ 
+     def _parse_fold_or_paren_expression(self) -> ASTExpression:
+@@ -5283,7 +5350,7 @@ class DefinitionParser(BaseParser):
+         # user-defined literal?
+         if self.skip_string('""'):
+             self.skip_ws()
+-            if not self.match(identifier_re):
++            if not self.match(_ud_suffix_re):
+                 self.fail("Expected user-defined literal suffix.")
+             identifier = ASTIdentifier(self.matched_text)
+             return ASTOperatorLiteral(identifier)
+diff --git a/tests/test_domain_cpp.py b/tests/test_domain_cpp.py
+index 9db741a..3c10f74 100644
+--- a/tests/test_domain_cpp.py
++++ b/tests/test_domain_cpp.py
+@@ -176,7 +176,59 @@ def test_expressions():
+         exprCheck(p + "'\\U0001f34c'", t + "127820")
+         exprCheck(p + "'\\U0001F34C'", t + "127820")
+ 
+-    # TODO: user-defined lit
++    # user-defined literals are encoded as calls to their literal operators
++    for literal, suffix, literal_id in [
++            ('42_km', '_km', 'L42E'),
++            ('075_oct', '_oct', 'L075E'),
++            ('0x2a_hex', '_hex', 'L0x2aE'),
++            ('0b101010_bin', '_bin', 'L0b101010E'),
++            ('6.62607015e-34q_J', 'q_J', 'L6.62607015e-34E'),
++            ('0x1.fp3_hexfloat', '_hexfloat', 'L0x1.fp3E'),
++            ('1units', 'units', 'L1E'),
++            ('1ullama', 'ullama', 'L1E'),
++            ('1lul', 'lul', 'L1E'),
++            ('1.0ff', 'ff', 'L1.0E'),
++            ('"hello"_tag', '_tag', 'LA5_KcE'),
++            ('u8"hello"_tag', '_tag', 'LA5_KcE'),
++            ('u"hello"_tag', '_tag', 'LA5_KDsE'),
++            ('U"hello"_tag', '_tag', 'LA5_KDiE'),
++            ('L"hello"_tag', '_tag', 'LA5_KwE'),
++            ("'a'_tag", '_tag', 'c97')]:
++        exprCheck(literal, 'clli%d%s%sE' %
++                  (len(suffix), suffix, literal_id))
++    exprCheck('1_km+2_km', 'plclli3_kmL1EEclli3_kmL2EE')
++
++    # Existing built-in suffixes retain their literal representation.
++    exprCheck('42ULL', 'L42ULLE')
++    exprCheck('42u', 'L42uE')
++    exprCheck('42llU', 'L42llUE')
++    exprCheck('1.0F', 'L1.0FE')
++
++    # Whitespace terminates a literal token and must not introduce a UDL.
++    parser = DefinitionParser('1 _km', location=None, config=Config())
++    parser.allowFallbackExpressionParsing = False
++    with pytest.raises(DefinitionError):
++        parser.parse_expression()
++
++    # UDL suffixes are ordinary identifiers.  Destructor-like names and
++    # Sphinx's anonymous-name extension must not be accepted for any literal
++    # kind (destructor identifiers would also all mangle to the same D0 id).
++    for malformed in (
++            '1~foo', '1@foo',
++            '1.0~foo', '1.0@foo',
++            '"hello"~foo', '"hello"@foo',
++            "'a'~foo", "'a'@foo"):
++        parser = DefinitionParser(malformed, location=None, config=Config())
++        parser.allowFallbackExpressionParsing = False
++        with pytest.raises(DefinitionError):
++            parser.parse_expression()
++
++    # Reserved radix prefixes cannot fall back to octal zero plus a UDL.
++    for malformed in ('0x_tag', '0b_tag', '0xG'):
++        parser = DefinitionParser(malformed, location=None, config=Config())
++        parser.allowFallbackExpressionParsing = False
++        with pytest.raises(DefinitionError):
++            parser.parse_expression()
+     exprCheck('(... + Ns)', '(... + Ns)', id4='flpl2Ns')
+     exprCheck('(Ns + ...)', '(Ns + ...)', id4='frpl2Ns')
+     exprCheck('(Ns + ... + 0)', '(Ns + ... + 0)', id4='fLpl2NsL0E')

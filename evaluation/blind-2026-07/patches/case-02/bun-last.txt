@@ -1,0 +1,21 @@
+Implemented C++ user-defined literal support.
+
+Changes:
+
+- Added UDL AST parsing, rendering, and stable IDs in [cpp.py](/tmp/bun-loop-clean-eval/bun-case-02/repo/sphinx/domains/cpp.py).
+- Added numeric, floating, string, encoded-string, character, suffix ambiguity, malformed radix, and whitespace coverage in [test_domain_cpp.py](/tmp/bun-loop-clean-eval/bun-case-02/repo/tests/test_domain_cpp.py).
+- Preserved built-in numeric suffix behavior.
+- Rejected invalid `~...` and Sphinx-specific `@...` suffixes.
+
+Final state:
+
+- Working-tree diff preserved; two files modified.
+- `python3 -m py_compile sphinx/domains/cpp.py tests/test_domain_cpp.py` — passed.
+- `git diff --check` — passed.
+- `python3 -m pytest -q tests/test_domain_cpp.py -k expressions` — blocked because `docutils` is not installed.
+- Two final independent reviews — CLEAN.
+- Material fix rounds: 2 of 3.
+- Agent contexts: 10 total, including orchestrator; 9 delegated.
+- No commit, push, or unrelated changes.
+
+The implementation is complete, but final runtime validation remains formally blocked by the missing `docutils` dependency.

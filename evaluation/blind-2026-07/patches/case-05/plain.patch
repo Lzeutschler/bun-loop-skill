@@ -1,0 +1,87 @@
+diff --git a/pylint/config/argument.py b/pylint/config/argument.py
+index 30a5fd1..9edb690 100644
+--- a/pylint/config/argument.py
++++ b/pylint/config/argument.py
+@@ -111,10 +111,42 @@ def _regex_transformer(value: str) -> Pattern[str]:
+         raise argparse.ArgumentTypeError(msg) from e
+ 
+ 
++def _split_regex_csv(value: str) -> Sequence[str]:
++    """Split comma-separated regexes without splitting inside regex constructs."""
++    patterns: list[str] = []
++    start = 0
++    escaped = False
++    delimiters: list[str] = []
++    matching_delimiters = {"(": ")", "[": "]", "{": "}"}
++
++    for index, character in enumerate(value):
++        if escaped:
++            escaped = False
++            continue
++        if character == "\\":
++            escaped = True
++            continue
++        if delimiters and delimiters[-1] == "]":
++            if character == "]":
++                delimiters.pop()
++        elif character in matching_delimiters:
++            delimiters.append(matching_delimiters[character])
++        elif delimiters and character == delimiters[-1]:
++            delimiters.pop()
++        elif character == "," and not delimiters:
++            if pattern := value[start:index].strip():
++                patterns.append(pattern)
++            start = index + 1
++
++    if pattern := value[start:].strip():
++        patterns.append(pattern)
++    return patterns
++
++
+ def _regexp_csv_transfomer(value: str) -> Sequence[Pattern[str]]:
+     """Transforms a comma separated list of regular expressions."""
+     patterns: list[Pattern[str]] = []
+-    for pattern in _csv_transformer(value):
++    for pattern in _split_regex_csv(value):
+         patterns.append(_regex_transformer(pattern))
+     return patterns
+ 
+diff --git a/tests/config/test_config.py b/tests/config/test_config.py
+index 83c8b07..99276fa 100644
+--- a/tests/config/test_config.py
++++ b/tests/config/test_config.py
+@@ -131,20 +131,21 @@ def test_regex_error(capsys: CaptureFixture) -> None:
+     assert assertString in output.err
+ 
+ 
+-def test_csv_regex_error(capsys: CaptureFixture) -> None:
+-    """Check that we correctly error when an option is passed and one
+-    of its comma-separated regular expressions values is an invalid regular expression.
+-    """
+-    with pytest.raises(SystemExit):
+-        Run(
+-            [str(EMPTY_MODULE), r"--bad-names-rgx=(foo{1,3})"],
+-            exit=False,
+-        )
+-    output = capsys.readouterr()
+-    assert (
+-        r"Error in provided regular expression: (foo{1 beginning at index 0: missing ), unterminated subpattern"
+-        in output.err
++@pytest.mark.parametrize(
++    ("value", "expected"),
++    [
++        (r"(foo{1,3})", [r"(foo{1,3})"]),
++        (r"[a,()],foo(?:bar,baz)", [r"[a,()]", r"foo(?:bar,baz)"]),
++        (r"foo\,bar,baz", [r"foo\,bar", "baz"]),
++    ],
++)
++def test_csv_regex_commas(value: str, expected: list[str]) -> None:
++    """Check that commas which are part of a regular expression are preserved."""
++    runner = Run(
++        [str(EMPTY_MODULE), f"--bad-names-rgxs={value}"],
++        exit=False,
+     )
++    assert [regex.pattern for regex in runner.linter.config.bad_names_rgxs] == expected
+ 
+ 
+ def test_short_verbose(capsys: CaptureFixture) -> None:

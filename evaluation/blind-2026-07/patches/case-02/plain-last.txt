@@ -1,0 +1,20 @@
+Implemented C++ user-defined literal support.
+
+Changes:
+
+- Added `ASTUserDefinedLiteral` handling.
+- Parses numeric, hexadecimal, binary, character, and string UDL suffixes.
+- Supports the reported expression:
+  `6.62607015e-34q_J * 1q_s`
+- Added focused parser and declaration regression tests.
+
+Validation:
+
+- `git diff --check` — passed.
+- `python3 -m compileall -q sphinx/domains/cpp.py tests/test_domain_cpp.py` — passed.
+- `python3 -m pytest tests/test_domain_cpp.py -q` — blocked because `docutils` is not installed.
+
+Working tree contains only:
+
+- `sphinx/domains/cpp.py`
+- `tests/test_domain_cpp.py`

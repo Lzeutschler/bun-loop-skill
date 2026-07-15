@@ -1,0 +1,28 @@
+Implemented and preserved the working-tree diff, but final validation is blocked.
+
+Current state:
+
+- Modified `sympy/stats/crv_types.py`
+- Modified `sympy/stats/tests/test_continuous_rv.py`
+- Diff: 280 insertions, 5 deletions
+- `git diff --check`: passed
+- No commits or unrelated changes
+
+Verification:
+
+- 12 targeted distribution tests passed.
+- All named CDFs, support boundaries, infinity checks, and representative PDF derivatives passed.
+- Full module: 59 passed; 4 pre-existing legacy XFAIL/modern-pytest incompatibilities.
+- One final reviewer was clean.
+
+Blocker:
+
+- For a user-created `Dummy(real=True, finite=True)`, Dagum, Gamma/Erlang, Nakagami, and StudentT can still return private `_...CDF` helpers instead of eager formulas through `distribution.cdf(dummy)`.
+- The other supported symbolic inputs and normal public examples work.
+- The three-material-fix-round limit is exhausted, so this finding cannot be fixed under the protocol without authorizing another round.
+
+Protocol accounting:
+
+- Fix rounds: 3/3
+- Agent contexts: 13 total—1 orchestrator and 12 isolated implementation/review/fix contexts
+- Final status: blocked pending authorization for one additional bounded fix-and-review round.

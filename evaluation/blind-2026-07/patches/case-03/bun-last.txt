@@ -1,0 +1,26 @@
+Blocked after exhausting the mandated three material fix rounds. The working-tree diff is preserved.
+
+Current state:
+
+- Modified: `astropy/coordinates/builtin_frames/__init__.py`
+- Modified: `astropy/coordinates/tests/test_intermediate_transformations.py`
+- Added: `astropy/coordinates/builtin_frames/itrs_observed_transforms.py`
+- No commits or unrelated changes made.
+
+Verification:
+
+- `git diff --check` — passed
+- `python3 -m py_compile ...` — passed
+- Focused pytest — blocked before collection by missing `setuptools_scm`, `astropy._version`, and ERFA runtime support
+
+Remaining blocker:
+
+- High severity: `_refract_altaz()` passes a `Quantity` distance through `np.broadcast_arrays()` without `subok=True`, stripping its unit. Refracted inverse transforms then treat physical positions as dimensionless and fail to restore the observer origin.
+- Required correction: preserve the `Quantity` during broadcasting or restore its unit explicitly, followed by another two-review validation round.
+
+Protocol totals:
+
+- Agent contexts: 12
+- Material fix rounds: 3/3
+- Final reviews: one `CLEAN`, one high-severity finding
+- Final status: blocked, not complete

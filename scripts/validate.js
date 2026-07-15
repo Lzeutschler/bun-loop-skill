@@ -37,6 +37,16 @@ const requiredFiles = [
   "skills/bun-loop-skill/agents/openai.yaml",
   ".claude-plugin/plugin.json",
   ".claude-plugin/marketplace.json",
+  "scripts/select_evaluation_tasks.py",
+  "scripts/render_evaluation_prompt.js",
+  "scripts/build_evaluation_predictions.py",
+  "scripts/seal_evaluation.py",
+  "evaluation/blind-2026-07.json",
+  "evaluation/blind-2026-07/manifest.json",
+  "evaluation/blind-2026-07/protocol.json",
+  "evaluation/blind-2026-07/seal.json",
+  "evaluation/blind-2026-07/reports/bun/aggregate.json",
+  "evaluation/blind-2026-07/reports/plain/aggregate.json",
 ];
 requiredFiles.forEach(read);
 
@@ -70,6 +80,7 @@ for (const expected of [
 }
 
 const packageJson = parseJson("package.json");
+const evaluation = parseJson("evaluation/blind-2026-07.json");
 const plugin = parseJson(".claude-plugin/plugin.json");
 const marketplace = parseJson(".claude-plugin/marketplace.json");
 if (plugin.version !== packageJson.version) fail("plugin.json version is out of sync");
@@ -78,6 +89,15 @@ if (marketplace.plugins?.[0]?.version !== packageJson.version) {
 }
 if (plugin.skills !== "./skills/") fail("Claude plugin must expose ./skills/");
 if (!fs.existsSync(path.join(skillDir, "SKILL.md"))) fail("Canonical skill source is missing");
+if (evaluation.prompt_fields?.join(",") !== "problem_statement,repo,base_commit") {
+  fail("Blind evaluation prompt fields are not the declared three-field boundary");
+}
+if (evaluation.paired_tasks !== 5 || evaluation.tasks?.length !== 5) {
+  fail("Blind evaluation must retain all five paired tasks");
+}
+if (evaluation.aggregate?.bun_loop?.resolved !== 0 || evaluation.aggregate?.single_agent?.resolved !== 1) {
+  fail("Blind evaluation aggregate is inconsistent with the official result");
+}
 
 const readme = read("README.md");
 for (const runtime of ["Claude", "Codex", "Cursor", "Copilot", "OpenCode", "Kilo", "Kimi", "Cline"]) {
@@ -91,6 +111,16 @@ if (!readme.includes(".bun-loop-install.json")) {
 }
 if (!readme.includes("Full-loop capability status")) {
   fail("README must separate installer mappings from runtime capability evidence");
+}
+if (!readme.includes("resolved 0/5 tasks versus 1/5")) {
+  fail("README must disclose the current blind evaluation result");
+}
+
+const promptRenderer = read("scripts/render_evaluation_prompt.js");
+for (const allowed of ["problem_statement", "repo", "base_commit"]) {
+  if (!promptRenderer.includes(allowed)) {
+    fail(`Evaluation prompt renderer is missing allowed field: ${allowed}`);
+  }
 }
 
 process.stdout.write("Repository validation passed\n");

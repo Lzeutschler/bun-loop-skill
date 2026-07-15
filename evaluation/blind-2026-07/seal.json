@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "hash_algorithm": "sha256",
+  "dataset": "SWE-bench/SWE-bench_Verified",
+  "dataset_revision": "91aa3ed51b709be6457e12d00300a6a596d4c6a3",
+  "dataset_fingerprint": "24e4847db36d5b81",
+  "manifest_sha256": "9c5a767525e7a241710f2bac1eab6cf08f350aaef37659fe32ef6f10a7bc41a4",
+  "task_count": 5,
+  "patches": {
+    "case-01/bun.patch": "dc18c2ca3a130cc67573826eb0999b0563c5e2bd1f120d0005d6cfe36f60a266",
+    "case-01/plain.patch": "c8180500a3c6b15d44506b5336e72aac5fdfbc51e24ff0a750bbcbd8521a38ee",
+    "case-02/bun.patch": "dab6f9ca984b6e664b3ffd2e55feab8fe176df0c2618f08610ae295bc2e30ba5",
+    "case-02/plain.patch": "b4244d87160b01a0ad3450b2b23dbc3c404f36e4daba1b6029d01ab947995aea",
+    "case-03/bun.patch": "84b25c3972c907ed93d9afb06635382c77ac1b4a4f88045c9fc260b2872c8cfa",
+    "case-03/plain.patch": "ebb8635b09ae8e7456945e388a2bf15ce7f2510994c89f6abc1c59ce56422b0c",
+    "case-04/bun.patch": "734cf3771296566fb99783f96331aa95c59a4839153e466c76b9b123ca0918f2",
+    "case-04/plain.patch": "151e86b4c8b0ab9bba51e4bfb700234a89c0335a5a1b9d3e547a2cabd13fc258",
+    "case-05/bun.patch": "39eac63bd99cca1425bc6e1fc36af0ee12fd3c1f65fb52a2432f0bba5dd6680d",
+    "case-05/plain.patch": "ea00518d787dfdb94a1a8dfe4915221e9a19ff4e0fe146fe3a15a0dad0992b42"
+  }
+}

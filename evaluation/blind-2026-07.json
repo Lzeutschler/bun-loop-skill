@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "study": "blind-swebench-verified-2026-07",
+  "date": "2026-07-15",
+  "dataset": "SWE-bench/SWE-bench_Verified",
+  "dataset_revision": "91aa3ed51b709be6457e12d00300a6a596d4c6a3",
+  "dataset_fingerprint": "24e4847db36d5b81",
+  "datasets_version": "5.0.0",
+  "harness_version": "4.1.0",
+  "model": "gpt-5.6-sol",
+  "prompt_fields": [
+    "problem_statement",
+    "repo",
+    "base_commit"
+  ],
+  "paired_tasks": 5,
+  "manifest": {
+    "path": "blind-2026-07/manifest.json",
+    "sha256": "9c5a767525e7a241710f2bac1eab6cf08f350aaef37659fe32ef6f10a7bc41a4"
+  },
+  "artifacts": {
+    "protocol": "blind-2026-07/protocol.json",
+    "seal": "blind-2026-07/seal.json",
+    "patches": "blind-2026-07/patches",
+    "predictions": "blind-2026-07/predictions",
+    "official_reports": "blind-2026-07/reports"
+  },
+  "temporal_isolation": {
+    "method": "procedural filesystem and agent isolation",
+    "hash_seal_created_during_original_run": false,
+    "qualification": "The reconstructed seal verifies archived bytes, not evaluator-access chronology."
+  },
+  "tasks": [
+    {
+      "instance_id": "sympy__sympy-13878",
+      "repo": "sympy/sympy",
+      "base_commit": "7b127bdf71a36d85216315f80c1b54d22b060818",
+      "difficulty": ">4 hours",
+      "bun_loop": {
+        "resolved": false,
+        "fail_to_pass": { "passed": 0, "total": 1 },
+        "pass_to_pass": { "passed": 19, "total": 19 },
+        "input_tokens": 2691937,
+        "cached_input_tokens": 2615296,
+        "output_tokens": 6846,
+        "reasoning_tokens": 1004,
+        "contexts": 13,
+        "fix_rounds": 3,
+        "patch_bytes": 16613,
+        "coding_status": "blocked"
+      },
+      "single_agent": {
+        "resolved": true,
+        "fail_to_pass": { "passed": 1, "total": 1 },
+        "pass_to_pass": { "passed": 19, "total": 19 },
+        "input_tokens": 838609,
+        "cached_input_tokens": 785920,
+        "output_tokens": 8792,
+        "reasoning_tokens": 1587,
+        "contexts": 1,
+        "patch_bytes": 6969,
+        "coding_status": "submitted"
+      }
+    },
+    {
+      "instance_id": "sphinx-doc__sphinx-7590",
+      "repo": "sphinx-doc/sphinx",
+      "base_commit": "2e506c5ab457cba743bb47eb5b8c8eb9dd51d23d",
+      "difficulty": ">4 hours",
+      "bun_loop": {
+        "resolved": false,
+        "fail_to_pass": { "passed": 0, "total": 1 },
+        "pass_to_pass": { "passed": 24, "total": 24 },
+        "input_tokens": 1611253,
+        "cached_input_tokens": 1549568,
+        "output_tokens": 6262,
+        "reasoning_tokens": 687,
+        "contexts": 10,
+        "fix_rounds": 2,
+        "patch_bytes": 9282,
+        "coding_status": "blocked"
+      },
+      "single_agent": {
+        "resolved": false,
+        "fail_to_pass": { "passed": 0, "total": 1 },
+        "pass_to_pass": { "passed": 24, "total": 24 },
+        "input_tokens": 313456,
+        "cached_input_tokens": 283392,
+        "output_tokens": 4271,
+        "reasoning_tokens": 1813,
+        "contexts": 1,
+        "patch_bytes": 4686,
+        "coding_status": "submitted"
+      }
+    },
+    {
+      "instance_id": "astropy__astropy-13398",
+      "repo": "astropy/astropy",
+      "base_commit": "6500928dc0e57be8f06d1162eacc3ba5e2eff692",
+      "difficulty": "1-4 hours",
+      "bun_loop": {
+        "resolved": false,
+        "fail_to_pass": { "passed": 0, "total": 4 },
+        "pass_to_pass": { "passed": 63, "total": 68 },
+        "input_tokens": 2451425,
+        "cached_input_tokens": 2376448,
+        "output_tokens": 7650,
+        "reasoning_tokens": 820,
+        "contexts": 12,
+        "fix_rounds": 3,
+        "patch_bytes": 16518,
+        "coding_status": "blocked"
+      },
+      "single_agent": {
+        "resolved": false,
+        "fail_to_pass": { "passed": 0, "total": 4 },
+        "pass_to_pass": { "passed": 63, "total": 68 },
+        "input_tokens": 270147,
+        "cached_input_tokens": 228352,
+        "output_tokens": 3918,
+        "reasoning_tokens": 1432,
+        "contexts": 1,
+        "patch_bytes": 3429,
+        "coding_status": "submitted"
+      }
+    },
+    {
+      "instance_id": "pytest-dev__pytest-10356",
+      "repo": "pytest-dev/pytest",
+      "base_commit": "3c1534944cbd34e8a41bc9e76818018fadefc9a1",
+      "difficulty": "1-4 hours",
+      "bun_loop": {
+        "resolved": false,
+        "fail_to_pass": { "passed": 0, "total": 1 },
+        "pass_to_pass": { "passed": 79, "total": 79 },
+        "input_tokens": 951122,
+        "cached_input_tokens": 877056,
+        "output_tokens": 5702,
+        "reasoning_tokens": 840,
+        "contexts": 9,
+        "fix_rounds": 2,
+        "patch_bytes": 5971,
+        "coding_status": "blocked"
+      },
+      "single_agent": {
+        "resolved": false,
+        "fail_to_pass": { "passed": 0, "total": 1 },
+        "pass_to_pass": { "passed": 79, "total": 79 },
+        "input_tokens": 353548,
+        "cached_input_tokens": 325632,
+        "output_tokens": 3179,
+        "reasoning_tokens": 783,
+        "contexts": 1,
+        "patch_bytes": 2752,
+        "coding_status": "submitted"
+      }
+    },
+    {
+      "instance_id": "pylint-dev__pylint-8898",
+      "repo": "pylint-dev/pylint",
+      "base_commit": "1f8c4d9eb185c16a2c1d881c054f015e1c2eb334",
+      "difficulty": "1-4 hours",
+      "bun_loop": {
+        "resolved": false,
+        "fail_to_pass": { "passed": 0, "total": 1 },
+        "pass_to_pass": { "passed": 18, "total": 18 },
+        "input_tokens": 1005547,
+        "cached_input_tokens": 958208,
+        "output_tokens": 4223,
+        "reasoning_tokens": 279,
+        "contexts": 6,
+        "fix_rounds": 1,
+        "patch_bytes": 5442,
+        "coding_status": "blocked"
+      },
+      "single_agent": {
+        "resolved": false,
+        "fail_to_pass": { "passed": 0, "total": 1 },
+        "pass_to_pass": { "passed": 18, "total": 18 },
+        "input_tokens": 403413,
+        "cached_input_tokens": 364544,
+        "output_tokens": 4766,
+        "reasoning_tokens": 1596,
+        "contexts": 1,
+        "patch_bytes": 3224,
+        "coding_status": "submitted"
+      }
+    }
+  ],
+  "aggregate": {
+    "bun_loop": {
+      "resolved": 0,
+      "input_tokens": 8711284,
+      "cached_input_tokens": 8376576,
+      "output_tokens": 30683,
+      "reasoning_tokens": 3630,
+      "contexts": 50,
+      "fix_rounds": 11
+    },
+    "single_agent": {
+      "resolved": 1,
+      "input_tokens": 2179173,
+      "cached_input_tokens": 1987840,
+      "output_tokens": 24926,
+      "reasoning_tokens": 7211,
+      "contexts": 5
+    }
+  }
+}
