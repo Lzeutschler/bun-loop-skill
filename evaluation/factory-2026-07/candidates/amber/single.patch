@@ -1,0 +1,214 @@
+diff --git a/port/src/main.rs b/port/src/main.rs
+index c435c4c..1348408 100644
+--- a/port/src/main.rs
++++ b/port/src/main.rs
+@@ -6,11 +6,17 @@ fn escape_json(value: &str) -> String {
+     let mut out = String::from("\"");
+     for ch in value.chars() {
+         match ch {
++            '\u{08}' => out.push_str("\\b"),
++            '\u{0c}' => out.push_str("\\f"),
+             '\\' => out.push_str("\\\\"),
+             '"' => out.push_str("\\\""),
+             '\n' => out.push_str("\\n"),
+             '\r' => out.push_str("\\r"),
+             '\t' => out.push_str("\\t"),
++            c if c <= '\u{1f}' => {
++                use std::fmt::Write;
++                write!(out, "\\u{:04x}", c as u32).unwrap();
++            }
+             c => out.push(c),
+         }
+     }
+@@ -35,7 +41,7 @@ fn main() {
+         "amber_tail" => Output::Text(ops::tail::run(&values[0], values[1].parse().unwrap())),
+         "amber_floor_bucket" => Output::Number(ops::floor_bucket::run(values[0].parse().unwrap(), values[1].parse().unwrap())),
+         "amber_wrap_index" => Output::Number(ops::wrap_index::run(values[0].parse().unwrap(), values[1].parse().unwrap())),
+-        "amber_escaped_fields" => Output::Texts(ops::escaped_fields::run(&values[0], values[1].chars().next().unwrap())),
++        "amber_escaped_fields" => Output::Texts(ops::escaped_fields::run(&values[0], &values[1])),
+         "amber_escaped_pairs" => Output::Texts(ops::escaped_pairs::run(&values[0])),
+         "amber_stable_unique" => Output::Texts(ops::stable_unique::run(values)),
+         "amber_stable_merge" => Output::Texts(ops::stable_merge::run(values)),
+diff --git a/port/src/ops/escaped_fields.rs b/port/src/ops/escaped_fields.rs
+index a56fc45..fee8e39 100644
+--- a/port/src/ops/escaped_fields.rs
++++ b/port/src/ops/escaped_fields.rs
+@@ -1,3 +1,35 @@
+-pub fn run(input: &str, delimiter: char) -> Vec<String> {
+-    input.split(delimiter).map(str::to_owned).collect()
++pub(crate) fn split_escaped(input: &str, delimiter: &str) -> Vec<String> {
++    let delimiter = {
++        let mut chars = delimiter.chars();
++        match (chars.next(), chars.next()) {
++            (Some(delimiter), None) => Some(delimiter),
++            _ => None,
++        }
++    };
++    let mut result = Vec::new();
++    let mut current = String::new();
++    let mut escaped = false;
++
++    for ch in input.chars() {
++        if escaped {
++            current.push(ch);
++            escaped = false;
++        } else if ch == '\\' {
++            escaped = true;
++        } else if Some(ch) == delimiter {
++            result.push(current);
++            current = String::new();
++        } else {
++            current.push(ch);
++        }
++    }
++    if escaped {
++        current.push('\\');
++    }
++    result.push(current);
++    result
++}
++
++pub fn run(input: &str, delimiter: &str) -> Vec<String> {
++    split_escaped(input, delimiter)
+ }
+diff --git a/port/src/ops/escaped_pairs.rs b/port/src/ops/escaped_pairs.rs
+index cc4ebaa..9d1404f 100644
+--- a/port/src/ops/escaped_pairs.rs
++++ b/port/src/ops/escaped_pairs.rs
+@@ -1,6 +1,12 @@
++use super::escaped_fields::split_escaped;
++
+ pub fn run(input: &str) -> Vec<String> {
+-    input.split(';').map(|entry| {
+-        let (key, value) = entry.split_once('=').unwrap_or((entry, ""));
+-        format!("{key}:{value}")
+-    }).collect()
++    split_escaped(input, ";")
++        .into_iter()
++        .map(|entry| {
++            let mut pair = split_escaped(&entry, "=").into_iter();
++            let key = pair.next().unwrap_or_default();
++            format!("{key}:{}", pair.collect::<Vec<_>>().join("="))
++        })
++        .collect()
+ }
+diff --git a/port/src/ops/floor_bucket.rs b/port/src/ops/floor_bucket.rs
+index 934b882..45cd2ab 100644
+--- a/port/src/ops/floor_bucket.rs
++++ b/port/src/ops/floor_bucket.rs
+@@ -1 +1,9 @@
+-pub fn run(value: i64, width: i64) -> i64 { value / width }
++pub fn run(value: i64, width: i64) -> i64 {
++    let quotient = value / width;
++    let remainder = value % width;
++    if remainder != 0 && (value < 0) != (width < 0) {
++        quotient - 1
++    } else {
++        quotient
++    }
++}
+diff --git a/port/src/ops/stable_merge.rs b/port/src/ops/stable_merge.rs
+index 6d352c2..a3538ad 100644
+--- a/port/src/ops/stable_merge.rs
++++ b/port/src/ops/stable_merge.rs
+@@ -1,7 +1,16 @@
++use std::collections::HashSet;
++
+ pub fn run(values: &[String]) -> Vec<String> {
+     let split = values.iter().position(|v| v == "--").unwrap_or(values.len());
+-    let mut result = values[..split].iter().chain(values.get(split + 1..).unwrap_or(&[])).cloned().collect::<Vec<_>>();
+-    result.sort();
+-    result.dedup();
++    let mut seen = HashSet::new();
++    let mut result = Vec::new();
++    for value in values[..split]
++        .iter()
++        .chain(values.get(split + 1..).unwrap_or(&[]))
++    {
++        if seen.insert(value.as_str()) {
++            result.push(value.clone());
++        }
++    }
+     result
+ }
+diff --git a/port/src/ops/stable_unique.rs b/port/src/ops/stable_unique.rs
+index 4315a17..7ada82f 100644
+--- a/port/src/ops/stable_unique.rs
++++ b/port/src/ops/stable_unique.rs
+@@ -1,6 +1,12 @@
++use std::collections::HashSet;
++
+ pub fn run(values: &[String]) -> Vec<String> {
+-    let mut result = values.to_vec();
+-    result.sort();
+-    result.dedup();
++    let mut seen = HashSet::new();
++    let mut result = Vec::new();
++    for value in values {
++        if seen.insert(value.as_str()) {
++            result.push(value.clone());
++        }
++    }
+     result
+ }
+diff --git a/port/src/ops/tail.rs b/port/src/ops/tail.rs
+index ed88839..38e4789 100644
+--- a/port/src/ops/tail.rs
++++ b/port/src/ops/tail.rs
+@@ -1,4 +1,11 @@
+-pub fn run(input: &str, count: usize) -> String {
+-    let bytes = input.as_bytes();
+-    String::from_utf8_lossy(&bytes[bytes.len().saturating_sub(count)..]).into_owned()
++pub fn run(input: &str, count: i64) -> String {
++    let chars: Vec<char> = input.chars().collect();
++    let start = if count == 0 { 0 } else { -(count as i128) };
++    let begin = if start < 0 {
++        (chars.len() as i128 + start).clamp(0, chars.len() as i128) as usize
++    } else {
++        start.min(chars.len() as i128) as usize
++    };
++
++    chars[begin..].iter().collect()
+ }
+diff --git a/port/src/ops/window.rs b/port/src/ops/window.rs
+index 11e6f16..a1924af 100644
+--- a/port/src/ops/window.rs
++++ b/port/src/ops/window.rs
+@@ -1,5 +1,19 @@
+-pub fn run(input: &str, start: isize, count: usize) -> String {
+-    let bytes = input.as_bytes();
+-    let begin = if start < 0 { bytes.len().saturating_sub((-start) as usize) } else { start as usize };
+-    String::from_utf8_lossy(&bytes[begin.min(bytes.len())..(begin + count).min(bytes.len())]).into_owned()
++fn slice_index(index: i128, len: usize) -> usize {
++    if index < 0 {
++        (len as i128 + index).clamp(0, len as i128) as usize
++    } else {
++        index.min(len as i128) as usize
++    }
++}
++
++pub fn run(input: &str, start: i64, count: i64) -> String {
++    let chars: Vec<char> = input.chars().collect();
++    let begin = slice_index(start as i128, chars.len());
++    let end = slice_index(start as i128 + count as i128, chars.len());
++
++    if end <= begin {
++        String::new()
++    } else {
++        chars[begin..end].iter().collect()
++    }
+ }
+diff --git a/port/src/ops/wrap_index.rs b/port/src/ops/wrap_index.rs
+index abc3ff4..8ff0c6b 100644
+--- a/port/src/ops/wrap_index.rs
++++ b/port/src/ops/wrap_index.rs
+@@ -1 +1,8 @@
+-pub fn run(value: i64, size: i64) -> i64 { value % size }
++pub fn run(value: i64, size: i64) -> i64 {
++    let remainder = value % size;
++    if remainder != 0 && (remainder < 0) != (size < 0) {
++        remainder + size
++    } else {
++        remainder
++    }
++}

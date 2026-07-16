@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "variant": "single",
+  "input_tokens": 375491,
+  "cached_input_tokens": 327680,
+  "output_tokens": 10251,
+  "reasoning_output_tokens": 4910,
+  "event_count": 35,
+  "patch_bytes": 7707,
+  "wall_clock_seconds": 294
+}

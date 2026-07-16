@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "rust": {
+    "image": "docker.io/library/rust:1.88.0-slim-bookworm",
+    "digest": "sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89",
+    "reference": "docker.io/library/rust:1.88.0-slim-bookworm@sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89"
+  },
+  "network_during_build_and_execution": "none"
+}

@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "date": "2026-07-16",
+  "qualification": "Fresh-context Patch Mode smoke execution on patch-loop-fixture-v1. Role counts and review events are orchestrator-reported; the final oracle was independently rerun by the root agent.",
+  "mode": "PATCH",
+  "contexts": 4,
+  "roles": {
+    "implementer": 1,
+    "reviewers": 2,
+    "fixer": 1
+  },
+  "reviewers_concurrent": true,
+  "reviewers_read_only": true,
+  "accepted_findings": 1,
+  "rejected_findings": 0,
+  "accepted_finding": {
+    "severity": "medium",
+    "failure_mode": "The initial rewrite accepted non-string inputs that the baseline rejected.",
+    "required_correction": "Preserve non-string rejection without broadening the parser grammar."
+  },
+  "reentry": false,
+  "reentry_reason": null,
+  "fixer_materially_expanded_boundary": false,
+  "oracle": {
+    "command": "npm test",
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "independently_rerun": true
+  },
+  "modified_paths": [
+    "src/parse-list.js"
+  ],
+  "committed": false
+}

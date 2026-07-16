@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "prompt_fields": ["problem_statement", "repo", "base_commit"],
+  "variants": ["factory", "single", "multi"],
+  "wrappers": {
+    "factory": "Use $bun-loop-skill factory from the provided isolated skill directory. Follow Factory Mode and solve the complete backlog. Do not read outside the candidate repository and provided skill directory.",
+    "single": "Solve the complete backlog directly in one fresh agent context. Do not use Bun Loop and do not delegate. Do not read outside the candidate repository.",
+    "multi": "Solve the complete backlog without Bun Loop. You may organize fresh subagents freely within the declared budget. Do not read outside the candidate repository."
+  },
+  "common_limits": {
+    "wall_clock_minutes": 120,
+    "targeted_oracle_runs": 24,
+    "full_oracle_runs": 6,
+    "concurrent_isolated_writers": 4,
+    "network_access": false
+  },
+  "context_limits": {
+    "factory": 40,
+    "single": 1,
+    "multi": 40
+  },
+  "run_order": {
+    "amber": ["factory", "single", "multi"],
+    "cobalt": ["single", "multi", "factory"],
+    "jade": ["multi", "factory", "single"]
+  },
+  "blind_sequence": [
+    "Generate history-free candidates and clean three-field manifest.",
+    "Run all nine coding variants without evaluator directories.",
+    "Archive patch, usage, and trace for every candidate.",
+    "Seal all 27 candidate artifacts.",
+    "Only then run the hidden evaluator and aggregate results."
+  ],
+  "primary_claim_gate": "Factory must resolve more complete backlogs than both controls and introduce no additional hidden regression."
+}

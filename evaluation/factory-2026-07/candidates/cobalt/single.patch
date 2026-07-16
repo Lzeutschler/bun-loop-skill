@@ -1,0 +1,324 @@
+diff --git a/port/src/main.rs b/port/src/main.rs
+index cc62984..efc6408 100644
+--- a/port/src/main.rs
++++ b/port/src/main.rs
+@@ -8,9 +8,15 @@ fn escape_json(value: &str) -> String {
+         match ch {
+             '\\' => out.push_str("\\\\"),
+             '"' => out.push_str("\\\""),
++            '\u{0008}' => out.push_str("\\b"),
++            '\u{000c}' => out.push_str("\\f"),
+             '\n' => out.push_str("\\n"),
+             '\r' => out.push_str("\\r"),
+             '\t' => out.push_str("\\t"),
++            c if c <= '\u{001f}' => {
++                use std::fmt::Write;
++                write!(out, "\\u{:04x}", c as u32).unwrap();
++            }
+             c => out.push(c),
+         }
+     }
+diff --git a/port/src/ops/escaped_fields.rs b/port/src/ops/escaped_fields.rs
+index a56fc45..73e4be7 100644
+--- a/port/src/ops/escaped_fields.rs
++++ b/port/src/ops/escaped_fields.rs
+@@ -1,3 +1,40 @@
+ pub fn run(input: &str, delimiter: char) -> Vec<String> {
+-    input.split(delimiter).map(str::to_owned).collect()
++    let mut result = Vec::new();
++    let mut current = String::new();
++    let mut escaped = false;
++
++    for ch in input.chars() {
++        if escaped {
++            current.push(ch);
++            escaped = false;
++        } else if ch == '\\' {
++            escaped = true;
++        } else if ch == delimiter {
++            result.push(current);
++            current = String::new();
++        } else {
++            current.push(ch);
++        }
++    }
++
++    if escaped {
++        current.push('\\');
++    }
++    result.push(current);
++    result
++}
++
++#[cfg(test)]
++mod tests {
++    use super::run;
++
++    #[test]
++    fn honors_escapes_and_empty_fields() {
++        assert_eq!(run("|two\\|inner|", '|'), ["", "two|inner", ""]);
++    }
++
++    #[test]
++    fn keeps_a_trailing_escape() {
++        assert_eq!(run("cobalt\\", '|'), ["cobalt\\"]);
++    }
+ }
+diff --git a/port/src/ops/escaped_pairs.rs b/port/src/ops/escaped_pairs.rs
+index cc4ebaa..dbc0f22 100644
+--- a/port/src/ops/escaped_pairs.rs
++++ b/port/src/ops/escaped_pairs.rs
+@@ -1,6 +1,50 @@
+ pub fn run(input: &str) -> Vec<String> {
+-    input.split(';').map(|entry| {
+-        let (key, value) = entry.split_once('=').unwrap_or((entry, ""));
+-        format!("{key}:{value}")
+-    }).collect()
++    fn split_escaped(input: &str, delimiter: char) -> Vec<String> {
++        let mut result = Vec::new();
++        let mut current = String::new();
++        let mut escaped = false;
++
++        for ch in input.chars() {
++            if escaped {
++                current.push(ch);
++                escaped = false;
++            } else if ch == '\\' {
++                escaped = true;
++            } else if ch == delimiter {
++                result.push(current);
++                current = String::new();
++            } else {
++                current.push(ch);
++            }
++        }
++
++        if escaped {
++            current.push('\\');
++        }
++        result.push(current);
++        result
++    }
++
++    split_escaped(input, ';')
++        .into_iter()
++        .map(|entry| {
++            let mut pair = split_escaped(&entry, '=').into_iter();
++            let key = pair.next().unwrap_or_default();
++            format!("{key}:{}", pair.collect::<Vec<_>>().join("="))
++        })
++        .collect()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::run;
++
++    #[test]
++    fn applies_both_escape_layers() {
++        assert_eq!(
++            run("name=cobalt;note=left\\=right;empty="),
++            ["name:cobalt", "note:left=right", "empty:"]
++        );
++        assert_eq!(run("a\\;b=c"), ["a;b:c"]);
++    }
+ }
+diff --git a/port/src/ops/floor_bucket.rs b/port/src/ops/floor_bucket.rs
+index 934b882..34297e1 100644
+--- a/port/src/ops/floor_bucket.rs
++++ b/port/src/ops/floor_bucket.rs
+@@ -1 +1,22 @@
+-pub fn run(value: i64, width: i64) -> i64 { value / width }
++pub fn run(value: i64, width: i64) -> i64 {
++    let quotient = value / width;
++    let remainder = value % width;
++    if remainder != 0 && (value < 0) != (width < 0) {
++        quotient - 1
++    } else {
++        quotient
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::run;
++
++    #[test]
++    fn rounds_toward_negative_infinity() {
++        assert_eq!(run(-16, 5), -4);
++        assert_eq!(run(16, -5), -4);
++        assert_eq!(run(-16, -5), 3);
++        assert_eq!(run(-15, 5), -3);
++    }
++}
+diff --git a/port/src/ops/stable_merge.rs b/port/src/ops/stable_merge.rs
+index 6d352c2..d5b240e 100644
+--- a/port/src/ops/stable_merge.rs
++++ b/port/src/ops/stable_merge.rs
+@@ -1,7 +1,30 @@
++use std::collections::HashSet;
++
+ pub fn run(values: &[String]) -> Vec<String> {
+     let split = values.iter().position(|v| v == "--").unwrap_or(values.len());
+-    let mut result = values[..split].iter().chain(values.get(split + 1..).unwrap_or(&[])).cloned().collect::<Vec<_>>();
+-    result.sort();
+-    result.dedup();
+-    result
++    let mut seen = HashSet::new();
++    values[..split]
++        .iter()
++        .chain(values.get(split + 1..).unwrap_or(&[]))
++        .filter(|value| seen.insert(value.as_str()))
++        .cloned()
++        .collect()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::run;
++
++    #[test]
++    fn merges_in_first_occurrence_order() {
++        let values = ["zeta", "cobalt", "--", "alpha", "zeta", "cobalt"]
++            .map(str::to_owned);
++        assert_eq!(run(&values), ["zeta", "cobalt", "alpha"]);
++    }
++
++    #[test]
++    fn matches_slice_behavior_without_a_separator() {
++        let values = ["zeta", "cobalt", "zeta"].map(str::to_owned);
++        assert_eq!(run(&values), ["zeta", "cobalt"]);
++    }
+ }
+diff --git a/port/src/ops/stable_unique.rs b/port/src/ops/stable_unique.rs
+index 4315a17..b720594 100644
+--- a/port/src/ops/stable_unique.rs
++++ b/port/src/ops/stable_unique.rs
+@@ -1,6 +1,22 @@
++use std::collections::HashSet;
++
+ pub fn run(values: &[String]) -> Vec<String> {
+-    let mut result = values.to_vec();
+-    result.sort();
+-    result.dedup();
+-    result
++    let mut seen = HashSet::new();
++    values
++        .iter()
++        .filter(|value| seen.insert(value.as_str()))
++        .cloned()
++        .collect()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::run;
++
++    #[test]
++    fn preserves_first_occurrence_order() {
++        let values = ["pear", "cobalt", "pear", "apple", "cobalt"]
++            .map(str::to_owned);
++        assert_eq!(run(&values), ["pear", "cobalt", "apple"]);
++    }
+ }
+diff --git a/port/src/ops/tail.rs b/port/src/ops/tail.rs
+index ed88839..17a30da 100644
+--- a/port/src/ops/tail.rs
++++ b/port/src/ops/tail.rs
+@@ -1,4 +1,24 @@
+ pub fn run(input: &str, count: usize) -> String {
+-    let bytes = input.as_bytes();
+-    String::from_utf8_lossy(&bytes[bytes.len().saturating_sub(count)..]).into_owned()
++    let chars: Vec<char> = input.chars().collect();
++    let begin = if count == 0 {
++        0
++    } else {
++        chars.len().saturating_sub(count)
++    };
++    chars[begin..].iter().collect()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::run;
++
++    #[test]
++    fn counts_unicode_code_points() {
++        assert_eq!(run("naïve-cobalt-🚀", 3), "t-🚀");
++    }
++
++    #[test]
++    fn zero_returns_the_whole_string() {
++        assert_eq!(run("cobalt", 0), "cobalt");
++    }
+ }
+diff --git a/port/src/ops/window.rs b/port/src/ops/window.rs
+index 11e6f16..aa67140 100644
+--- a/port/src/ops/window.rs
++++ b/port/src/ops/window.rs
+@@ -1,5 +1,34 @@
+ pub fn run(input: &str, start: isize, count: usize) -> String {
+-    let bytes = input.as_bytes();
+-    let begin = if start < 0 { bytes.len().saturating_sub((-start) as usize) } else { start as usize };
+-    String::from_utf8_lossy(&bytes[begin.min(bytes.len())..(begin + count).min(bytes.len())]).into_owned()
++    let chars: Vec<char> = input.chars().collect();
++    let length = chars.len() as i128;
++    let start = start as i128;
++    let end = start + count as i128;
++
++    fn slice_index(index: i128, length: i128) -> usize {
++        if index < 0 {
++            (length + index).max(0) as usize
++        } else {
++            index.min(length) as usize
++        }
++    }
++
++    let begin = slice_index(start, length);
++    let end = slice_index(end, length);
++    chars[begin..end.max(begin)].iter().collect()
++}
++
++#[cfg(test)]
++mod tests {
++    use super::run;
++
++    #[test]
++    fn slices_unicode_code_points() {
++        assert_eq!(run("A🙂Bécobalt", 1, 3), "🙂Bé");
++    }
++
++    #[test]
++    fn normalizes_negative_bounds_independently() {
++        assert_eq!(run("cobalt", -9, 4), "c");
++        assert_eq!(run("cobalt", -2, 1), "l");
++    }
+ }
+diff --git a/port/src/ops/wrap_index.rs b/port/src/ops/wrap_index.rs
+index abc3ff4..ae7e33b 100644
+--- a/port/src/ops/wrap_index.rs
++++ b/port/src/ops/wrap_index.rs
+@@ -1 +1,22 @@
+-pub fn run(value: i64, size: i64) -> i64 { value % size }
++pub fn run(value: i64, size: i64) -> i64 {
++    let value = value as i128;
++    let size = size as i128;
++    (((value % size) + size) % size) as i64
++}
++
++#[cfg(test)]
++mod tests {
++    use super::run;
++
++    #[test]
++    fn wraps_negative_indices() {
++        assert_eq!(run(-7, 9), 2);
++        assert_eq!(run(11, 9), 2);
++    }
++
++    #[test]
++    fn retains_javascript_sign_for_negative_sizes() {
++        assert_eq!(run(7, -5), -3);
++        assert_eq!(run(-7, -5), -2);
++    }
++}

@@ -1,7 +1,7 @@
 {
   "name": "bun-loop-skill",
-  "version": "0.2.0",
-  "description": "An adversarial multi-agent engineering loop for complex software work.",
+  "version": "0.3.0",
+  "description": "Oracle-driven multi-agent factory and patch loops for complex software work.",
   "bin": {
     "bun-loop-skill": "bin/install.js"
   },

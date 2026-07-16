@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "variant": "factory",
+  "parse_error": "missing FACTORY_TRACE",
+  "final_message": "FACTORY_TRACE {\"contexts\":36,\"roles\":{\"mappers\":2,\"implementers\":9,\"reviewers\":20,\"fixers\":5},\"fix_rounds\":2,\"workflow_revisions\":2,\"requeues\":3,\"accepted_findings\":9,\"rejected_findings\":7,\"targeted_oracle_runs\":24,\"full_oracle_runs\":4,\"status\":\"passed\"}"
+}

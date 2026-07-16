@@ -7,7 +7,39 @@ the project intends to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-16
+
 ### Changed
+
+- Split the workflow into an oracle-driven Factory Mode for repeatable backlogs and
+  a bounded Patch Mode for one high-risk change set.
+- Replace recursive reviewer cascades and mandatory global `CLEAN` reviews with
+  executable item and integration oracles as the source of completion truth.
+- Add mapper-reviewed preparation artifacts, a three-item Factory trial, safe
+  isolated writer lanes, and process-level requeueing after repeated defect classes.
+- Move state, structural, parser, lifetime, and migration checks into conditional
+  review rubrics so ordinary patches do not pay their context cost.
+- Bound Patch Mode to four normal role contexts and seven contexts only after a
+  material fixer expansion or a still-failing oracle.
+- Add a deterministic three-seed Node-to-Rust backlog fixture, hidden evaluator,
+  three-variant sealing protocol, and integrity tests for the next comparison.
+- Install and remove the conditional review rubrics across every supported runtime
+  layout.
+
+### Evaluation
+
+- Preserve the official five-task negative result for the old 0.2 universal patch
+  loop: 0/5 resolved versus 1/5 for the single-agent control at about four times
+  the input-token cost.
+- Record the controlled 0.3 Factory study honestly: Factory, single-agent, and
+  unstructured multi-agent variants all resolved 3/3 backlogs, while Factory used
+  about 23× and 15× their respective input-token totals.
+- Add fresh-context routing and Patch-budget smoke runs; the Patch run used exactly
+  four role contexts and required no review re-entry.
+- Add an automatic amortization gate after the Factory study showed that preparation
+  and a three-item trial are unjustified for a small eight-item transparent port.
+
+### Additional changes
 
 - Make the beta explicit-only by disabling implicit skill invocation.
 - Add hard per-task budgets and scope-frontier rules; budget exhaustion now blocks
@@ -59,6 +91,7 @@ the project intends to follow [Semantic Versioning](https://semver.org/).
 - Repository validation, installer tests, cross-platform CI, and community policy
   files.
 
-[Unreleased]: https://github.com/Lzeutschler/bun-loop-skill/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Lzeutschler/bun-loop-skill/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Lzeutschler/bun-loop-skill/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Lzeutschler/bun-loop-skill/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Lzeutschler/bun-loop-skill/releases/tag/v0.1.0

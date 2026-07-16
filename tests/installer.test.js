@@ -68,6 +68,17 @@ test("installs, replaces, and uninstalls a custom target", (context) => {
   assert.equal(installed[0].changed, true);
   assert.equal(fs.existsSync(path.join(destination, "SKILL.md")), true);
   assert.equal(fs.existsSync(path.join(destination, "agents", "openai.yaml")), true);
+  assert.equal(
+    fs.existsSync(path.join(destination, "references", "review-rubrics.md")),
+    true,
+  );
+  assert.equal(
+    fs.readFileSync(path.join(destination, "references", "review-rubrics.md"), "utf8"),
+    fs.readFileSync(
+      path.join(__dirname, "..", "skills", SKILL_NAME, "references", "review-rubrics.md"),
+      "utf8",
+    ),
+  );
   const marker = JSON.parse(fs.readFileSync(path.join(destination, INSTALL_MARKER), "utf8"));
   assert.deepEqual(marker, {
     schema_version: 1,
@@ -83,6 +94,36 @@ test("installs, replaces, and uninstalls a custom target", (context) => {
   const removed = execute({ ...options, uninstall: true });
   assert.equal(removed[0].changed, true);
   assert.equal(fs.existsSync(destination), false);
+});
+
+test("installs and removes the review rubrics for every supported runtime layout", (context) => {
+  const temp = fixture();
+  context.after(temp.cleanup);
+  const home = path.join(temp.directory, "home");
+  const cwd = path.join(temp.directory, "project");
+  const env = {};
+  const layouts = [
+    ["claude", "global"], ["claude", "local"],
+    ["codex", "global"], ["codex", "local"],
+    ["cursor", "global"], ["cursor", "local"],
+    ["copilot", "global"], ["copilot", "local"],
+    ["opencode", "global"], ["opencode", "local"],
+    ["kilo", "global"], ["kilo", "local"],
+    ["kimi", "global"], ["kimi", "local"],
+    ["cline", "global"],
+  ];
+
+  for (const [runtime, scope] of layouts) {
+    const options = { runtimes: [runtime], scope, home, cwd, env };
+    const [{ destination }] = execute(options);
+    assert.equal(
+      fs.existsSync(path.join(destination, "references", "review-rubrics.md")),
+      true,
+      `${runtime} ${scope}`,
+    );
+    execute({ ...options, uninstall: true });
+    assert.equal(fs.existsSync(destination), false, `${runtime} ${scope} uninstall`);
+  }
 });
 
 test("dry-run reports without changing files", (context) => {

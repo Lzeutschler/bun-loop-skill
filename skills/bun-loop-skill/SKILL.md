@@ -1,171 +1,86 @@
 ---
 name: bun-loop-skill
 description: >-
-  Run an orchestrated multi-agent implementation, adversarial-review, fix, and
-  verification loop for complex or high-risk software engineering tasks. Use only
-  when the user explicitly invokes $bun-loop-skill for a large refactor, migration,
-  compiler or test backlog, cross-cutting bug fix, or other change with substantial
-  regression risk where independent implementation and review contexts materially
-  improve confidence. Do not invoke without explicit user authorization, for
-  trivial edits, or for read-only questions.
+  Run an oracle-driven multi-agent engineering loop with separate implementer,
+  adversarial-reviewer, fixer, and orchestrator contexts. Use only when the user
+  explicitly invokes $bun-loop-skill, optionally with `factory` for a repeatable
+  migration, port, compiler-error queue, or test backlog, or with `patch` for one
+  high-risk change set. A plain explicit invocation selects Factory Mode only when
+  work is repeatable, an executable oracle exists, and process improvements can be
+  reused, and preparation can amortize across the queue; otherwise it selects Patch
+  Mode. Do not invoke implicitly, for trivial edits, or for read-only questions.
 ---
 
 # Bun Loop
 
-Apply the implement-review-fix loop inspired by Jarred Sumner's
-[Bun rewrite workflow](https://bun.com/blog/bun-in-rust). Keep authorship,
-adversarial review, fixing, and orchestration in separate contexts.
+Apply the oracle-driven engineering loops inspired by Jarred Sumner's
+[Bun rewrite workflow](https://bun.com/blog/bun-in-rust). Treat adversarial review
+as a bug-finding filter. Treat executable oracles—tests, compilers, linters,
+reproductions, parity checks, or benchmarks—as the source of completion truth.
 
-## Preserve the operating contract
+## Route the explicit request
 
-- Honor the user's scope, the current collaboration mode, repository instructions,
-  approval requirements, and existing changes before starting the loop.
-- Use real subagents. Never simulate implementer, reviewer, and fixer roles in the
-  orchestrator context.
-- Treat the agent that receives the task and loads this skill as the orchestrator,
-  even when that agent is technically a subagent. Never infer that an unseen parent
-  agent will orchestrate the loop.
-- Coordinate work, adjudicate evidence, and decide state transitions as the
-  orchestrator; do not author code, apply fixes, or originate a code review. Before
-  changing any target file, spawn the implementer and wait for its handoff.
-- Permit exactly one writing agent at a time. Reviewers must remain read-only.
-- Set a hard loop budget before delegation. Budget work items, material fix rounds,
-  fresh contexts, and expensive verification runs from the task's risk and the
-  runtime's documented limits. Unless the user sets a different bound, allow at
-  most three material fix rounds per work item. Reserve two fresh contexts for the
-  post-fix final review; do not consume them on a redundant aggregate pair when the
-  single-item reuse rule applies.
-- Treat the budget as a stop condition, never as permission to waive a finding,
-  skip evidence, or declare incomplete work done. Ask the user to expand the
-  budget, reduce scope, or accept a blocked handoff when the cap is reached.
-- Stop and report a capability blocker if the runtime cannot provide independent
-  subagent contexts. Do not weaken context isolation silently.
+Honor an explicit `$bun-loop-skill factory` or `$bun-loop-skill patch` selection.
+For a plain `$bun-loop-skill` invocation, choose Factory Mode only when all four
+conditions hold:
 
-## Build the task contract
+1. A source can generate multiple structurally similar work items, such as files,
+   compiler diagnostics, failing tests, stack traces, or migration records.
+2. A repeatable executable oracle can be established before bulk implementation.
+3. A correction to the active workflow can improve remaining items of the same
+   class.
+4. Preparation plus the three-item trial is expected to consume no more than one
+   quarter of the total engineering effort. When this amortization is unclear,
+   prefer Patch Mode and report the estimate.
 
-Inspect the repository and convert the request into a compact task contract before
-delegating implementation. Record:
+Otherwise choose Patch Mode. Do not use either mode for a trivial edit or a
+read-only question; explain that the skill's multi-agent cost is not justified.
+If the user explicitly requests Factory Mode but an oracle cannot be established,
+complete the preparation audit, mark the run `blocked`, and report the missing
+oracle instead of silently falling back.
 
-- the objective and externally observable success criteria;
-- the primary contract, using this evidence order: explicit user acceptance
-  criteria; documented public behavior and the issue statement; baseline tests and
-  repository conventions, excluding behavior alleged to be defective; then
-  author-added tests. Record exact ordering, serialization, symbolic structure,
-  error behavior, and compatibility semantics where observable. If higher-ranked
-  evidence conflicts or leaves a material semantic choice unresolved, clarify with
-  the user instead of inventing the expected result;
-- in-scope and out-of-scope behavior;
-- a scope frontier naming allowed paths, public behaviors, dependencies, and the
-  conditions under which discovering new work requires user authorization. If a
-  writer discovers that the same contract requires a repository-owned shared
-  primitive or canonical state model outside its paths, it must stop and return
-  evidence. The orchestrator must amend path ownership before work resumes and
-  obtain user authorization whenever user scope, dependencies, or public behavior
-  would expand;
-- constraints, compatibility requirements, and forbidden shortcuts;
-- the supported input and environment domain, including which hostile or unusual
-  values the public contract admits;
-- the baseline state, including pre-existing user changes;
-- targeted and integration verification commands;
-- material risks and relevant source artifacts;
-- the loop budget: maximum work items, material fix rounds per item, fresh agent
-  contexts, and expensive verification runs, with the reason for each bound;
-- an item-specific patch-growth budget: expected owned paths and whether new public
-  abstractions or material diff growth require contract re-audit. Define material
-  using task-scale evidence rather than a universal line-count threshold;
-- a causal-surface map for each broken invariant: every operation that creates,
-  mutates, serializes, or consumes the affected state, not only the crash site;
-- the repository-native authority for the behavior: shared parser, state model,
-  protocol implementation, or other abstraction, plus sibling frontends or
-  operations that consume it; record when no such authority exists;
-- a behavior matrix covering materially different input topologies, operation
-  modes, flags, and cross-operation round trips, with negative compatibility
-  controls for inputs that must remain rejected or unchanged;
-- an ordered queue of bounded work items with owned paths and dependencies.
+State the selected mode and the evidence for the selection before delegation.
 
-Give each work item an identifier, objective, acceptance criteria, allowed paths,
-verification commands, dependencies, and one of these states:
+## Preserve the common operating contract
 
-`queued -> implementing -> reviewing -> fixing -> verifying -> done | blocked`
+- Honor repository instructions, user scope, approval requirements, and existing
+  changes.
+- Use real independent subagent contexts. The agent that loads this skill is the
+  orchestrator, even if it is itself a subagent.
+- Keep roles separate: the orchestrator coordinates; implementers and fixers write;
+  reviewers remain read-only. The orchestrator must not author the production
+  change or originate review findings.
+- Permit one writer per work item. Never allow overlapping writers in one working
+  tree. Use parallel writers only under Factory Mode's isolation rules.
+- Give reviewers the item contract, relevant reference artifacts, baseline or
+  source material, final diff, and raw oracle output. Exclude the implementer's
+  reasoning and persuasive explanation.
+- Preserve unrelated work. Never use `git stash`, destructive reset or checkout,
+  or commands that discard another agent's or the user's changes. Do not commit,
+  push, or open a pull request without explicit authorization.
+- Set a context, writer, and expensive-oracle budget before starting. A budget is a
+  stop condition, never permission to weaken evidence or declare incomplete work
+  done.
+- Stop with a capability blocker when independent contexts or required isolation
+  are unavailable. Never simulate missing roles in the orchestrator context.
 
-For a large or expensive change, run the smallest representative work item as a
-trial. Complete its full loop, correct the active task contract if necessary, and
-only then expand to the remaining queue.
+## Use evidence consistently
 
-## Run one work item
+For each item, define a compact contract containing:
 
-### 1. Delegate implementation
+- objective, owned paths, and observable acceptance criteria;
+- relevant mapping guide, invariants, or source-of-truth artifacts;
+- targeted item oracle and the full integration oracle;
+- forbidden shortcuts and compatibility constraints;
+- dependencies, current queue state, and the declared growth boundary.
 
-Spawn one implementer in a bounded context. Use no inherited conversation history
-when the collaboration runtime supports that option. Pass only the task contract,
-the current work item, relevant source artifacts, allowed paths, and verification
-commands. Instruct the implementer to:
+Use evidence in this order: explicit user acceptance criteria; documented public
+behavior and task statement; independent executable oracle; baseline tests and
+repository conventions, excluding alleged defects; then author-added tests. Block
+for clarification when higher-ranked evidence conflicts or leaves a material
+semantic decision unresolved.
 
-- make the complete production change within the assigned scope;
-- for a defect, reproduce the primary failure first; for a refactor, migration, or
-  new behavior without a failing reproduction, establish an executable acceptance
-  example or before/after invariant instead;
-- extend the repository's authoritative abstraction when one exists and its paths
-  are assigned to this writer; otherwise stop for an amended contract. Do not
-  create a parallel parser, state model, or algorithm merely to keep the patch local;
-- repair the state transition that creates the invalid state, after inspecting
-  sibling writers and inverse operations; do not merely sanitize the observed
-  consumer or subtract stale bookkeeping at the crash site;
-- preserve unrelated and pre-existing changes;
-- run the strongest affordable targeted checks;
-- avoid self-review and avoid editing outside owned paths;
-- return changed paths, acceptance-criteria mapping, command results, and known
-  residual risks.
-
-Wait for the implementer to finish and capture an item-specific review bundle:
-the task contract, relevant baseline code, changed paths, patch, and raw verification
-output. Exclude the implementer's private reasoning and persuasive explanation.
-
-### 2. Run adversarial reviews
-
-Spawn two reviewers concurrently in fresh contexts with no inherited conversation
-history. Keep the orchestrator alive until both return. Give each the same review
-bundle without the other reviewer's output or the expected answer. Tell each
-reviewer to assume that the change is wrong and to find concrete ways it violates
-the contract, regresses behavior, or fails in use.
-
-Require reviewers to inspect, reason, and run read-only checks without editing.
-Prioritize, where relevant:
-
-- primary-contract fidelity before edge expansion: independently reconstruct the
-  required output, precedence, ordering, structure, and error behavior from the
-  task and baseline before considering author-added tests;
-- causal completeness: whether every producer of the violated invariant and each
-  inverse or round-trip operation follows one coherent state model;
-- exact postconditions across the task contract's behavior matrix, including
-  variable identity, ownership, dimensions, metadata, and indexes—not merely
-  absence of the reported exception;
-- behavioral correctness and acceptance-criteria mismatches;
-- edge cases, state transitions, error paths, and partial failure;
-- concurrency, re-entrancy, lifetime, ownership, and async boundaries;
-- compatibility, security, performance, and resource regressions;
-- missing, misleading, disabled, or weakened tests.
-
-Treat author-added tests as evidence, never as the sole oracle. Require at least
-one direct check of the original reproduction, or the declared acceptance example
-or invariant when no reproduction exists, plus one independent derivation of the
-expected result. For symbolic trees, serialized forms, precedence rules, and
-ordered collections, mathematical or set equivalence is insufficient when callers
-observe exact structure or order. Verify that previously rejected inputs remain
-rejected unless the task explicitly changes that compatibility boundary.
-
-Keep findings inside the supported domain recorded in the task contract. Treat a
-hostile or unusual value as relevant only when the public API or established
-compatibility behavior admits it; otherwise reject it as scope expansion.
-
-For an invariant or state-transition bug, require each reviewer to inspect all
-assignments to the affected state fields and exercise at least one inverse or
-round-trip path. A narrow patch at the reported method is presumptively incomplete
-until this causal audit demonstrates otherwise. Do not use current buggy output as
-the expected result merely because existing tests encode it; derive postconditions
-from the public contract, neighboring operations, and the invariant model.
-
-Reject vague style feedback. Require every finding to contain:
+Reviewers must return `CLEAN` or findings in this form:
 
 ```text
 severity: critical | high | medium | low
@@ -175,133 +90,154 @@ evidence: reasoning, reproduction, or command output
 required_correction: the behavior that must change
 ```
 
-Allow `CLEAN` only after an explicit review finds no actionable issue. Reviewers
-must report findings, not implement fixes.
+Accept only relevant findings supported by reproduction, command output, a logical
+demonstration, or the item contract. Deduplicate reports and record a short reason
+for rejecting unsupported, duplicate, or scope-expanding findings. Review activity
+and `CLEAN` labels are not executable evidence.
 
-Never treat a missing or stalled reviewer as `CLEAN`. If a reviewer stops making
-progress beyond the runtime's normal bounded wait, interrupt it and replace it once
-with a fresh reviewer receiving the same bundle. If the replacement also stalls,
-mark validation blocked and report the missing independent evidence.
+Read [references/review-rubrics.md](references/review-rubrics.md) only when the
+item involves the corresponding risk class: state transitions, exact structural
+semantics, parsers or compatibility boundaries, async lifetimes, or migrations.
+Do not load every rubric by default.
 
-Treat a hard fresh-context creation error as a capacity signal, not an ordinary
-stall. Try the intended spawn once and, when the runtime supports an independent
-alternate coordinator, one alternate spawn path. If both return the same capacity
-error, stop retrying, preserve the current patch and evidence, and mark validation
-blocked. Reusing a context that has seen implementation or another review does not
-satisfy the missing review.
+Reject false progress in both modes:
 
-### 3. Adjudicate and fix
+- stubs, placeholder returns, new unresolved TODOs, ignored errors, or compile-only
+  substitutions for required behavior;
+- deleted, disabled, skipped, or weakened tests and assertions;
+- unrequested generalization that broadens a syntax or compatibility boundary;
+- a workaround requiring a paragraph-length comment to argue that it is safe;
+- a parallel implementation of a repository-owned parser, state model, or
+  algorithm merely to keep a patch local.
 
-Have the orchestrator deduplicate the two reports and evaluate their evidence.
-Accept findings that are reproducible, logically demonstrated, or required by the
-task contract. Reject duplicates, unsupported claims, and scope-expanding
-preferences with a short reason. Do not mark an accepted finding as waived.
+## Run Factory Mode
 
-When accepted findings exist, spawn a separate fixer in a fresh context. Pass the
-task contract, current patch, accepted findings, allowed paths, and verification
-commands, but not the implementer's reasoning. Instruct the fixer to resolve every
-accepted finding without broadening scope and to return the same evidence fields as
-the implementer.
+Use Factory Mode as an engineering production system with an inner item loop and an
+outer process-improvement loop.
 
-Review every fixer patch again with two new adversarial reviewers. Repeat review
-and fix rounds until no accepted finding remains, the hard loop budget is reached,
-or the stagnation rule fires. A finding about behavior directly changed by the
-current patch remains in scope even when its failure appears in a neighboring file.
-For unrelated pre-existing defects or material expansion beyond the scope frontier,
-record evidence and request authorization instead of silently growing the task.
+### 1. Prepare the factory
 
-### 4. Verify and close
+Spawn one mapper to inspect the request and repository. Have it produce compact
+active artifacts:
 
-After a clean review round, run the targeted verification commands against the
-current integrated working tree. Mark the item `done` only when:
+- a porting or migration guide and explicit invariants;
+- a deterministic queue generator and initial ordered queue;
+- item and full-integration oracle commands;
+- ownership partitions, dependencies, and safe integration order;
+- an initial review rubric containing only relevant risk classes;
+- limits for contexts, writer lanes, oracle runs, and item growth.
 
-- every acceptance criterion is satisfied;
-- the original reproduction, or its declared acceptance example or invariant,
-  satisfies the exact primary contract, including observable structure and order
-  rather than only an equivalent end value;
-- the behavior matrix validates exact postconditions, not only green exit status
-  or the original reproduction;
-- every required command passes, or an unavailable command is reported as a
-  blocker rather than assumed successful;
-- no accepted review finding remains;
-- the patch stays within the agreed scope and preserves existing work;
-- no forbidden shortcut remains.
+Keep these artifacts in task scratch space unless the user-authorized project scope
+includes writing them into the repository. Send the artifacts to two fresh,
+read-only adversarial reviewers. Spawn one fresh fixer to consolidate accepted
+preparation findings. The orchestrator adjudicates evidence but does not rewrite the
+artifacts itself.
 
-Otherwise create a bounded follow-up item or move the item back to `fixing`.
-If doing so would exceed the loop budget, mark the item `blocked` and report the
-remaining gate, evidence collected, budget consumed, and smallest decision that
-would permit another bounded iteration.
+Require the queue generator and item oracle to work before bulk implementation.
+When either is unavailable, mark preparation `blocked` with the exact missing
+capability.
 
-## Reject false progress
+### 2. Run a three-item trial
 
-Treat compilation as evidence, not completion. Reject implementations that obtain
-green output by adding stubs, placeholder returns, new unresolved TODOs, ignored
-errors, disabled checks, weakened assertions, or deleted coverage.
+Select three items representing materially different dependencies or risk classes.
+For each trial item:
 
-Reject symptom patches that make one reproduction pass while leaving the same
-invalid state constructible through a sibling writer, inverse operation, flag, or
-input topology. Expand verification from the causal-surface map before accepting
-such a patch.
+1. Spawn one implementer for that item only.
+2. Run the item oracle and capture raw output.
+3. Spawn two fresh reviewers concurrently.
+4. Adjudicate their evidence and spawn one fresh fixer when accepted findings exist.
+5. Run the item oracle again against the integrated result.
 
-Reject unrequested generalization of a narrow syntax, protocol, or compatibility
-change. A broader implementation must be required by the primary contract or by
-demonstrated repository architecture, and it must retain negative compatibility
-controls.
+After all three, update the active mapping guide, queue rules, ownership, review
+rubric, and parallelism only through a mapper/fixer handoff backed by trial evidence.
+Freeze the resulting factory contract before processing the remaining queue.
 
-Apply the task contract's complexity ratchet after every material fix: compare
-changed paths, diff size, new abstractions, and duplicated logic with both the
-previous round and the item-specific growth budget. Progress means closing a named
-acceptance criterion, primary failing check, accepted finding, or work item. If the
-patch exceeds its growth budget without such progress, or duplicates a
-repository-owned algorithm, stop fixing and re-audit the contract and authoritative
-abstraction. Amend the budget only with concrete evidence that the same user scope
-requires the growth. Review activity alone is not progress.
+### 3. Process the queue
 
-Reject workaround code that needs a paragraph-length comment to argue that it is
-safe. Prefer code whose invariants are visible in its types, control flow, and
-tests. Keep concise comments that explain genuinely non-obvious external contracts.
+For each item, use this state flow:
 
-When the same defect pattern appears more than once, correct the active process:
-update the remaining work-item contract and reviewer rubric, add an appropriate
-verification gate, and requeue completed items that may share the defect. Do not
-self-modify this installed skill unless the user explicitly requests that change.
+`queued -> implementing -> reviewing -> fixing -> verifying -> done | requeued | blocked`
 
-## Protect the shared workspace
+The item loop is:
 
-- Inspect the worktree before delegation and identify user-owned changes.
-- Never allow overlapping writers or ambiguous path ownership.
-- Never use `git stash`, destructive reset/checkout operations, or commands that
-  discard another agent's or the user's work.
-- Do not commit, push, rewrite history, or create pull requests unless the user has
-  explicitly authorized that action.
-- Avoid broad formatters, code generators, or slow global commands inside parallel
-  phases unless the orchestrator has established exclusive ownership.
+1. One implementer makes the complete bounded change and runs the affordable item
+   oracle.
+2. Two fresh reviewers inspect the same final diff and raw oracle output in parallel.
+3. The orchestrator adjudicates; one fresh fixer applies all accepted findings.
+4. Integrate the patch in the declared order and run the item oracle.
+5. Mark the item `done` only when its oracle and acceptance criteria pass and no
+   accepted finding remains.
 
-## Finish the queue
+Do not recursively launch another reviewer pair merely because a fixer wrote code.
+Create a bounded follow-up item only when the fixer materially crosses the item's
+declared growth boundary or the oracle still fails. The new item must name the
+remaining failure and use the same queue discipline.
 
-After all work items are `done`, run the full affordable integration checks. Build
-an aggregate review bundle for the complete diff and send it to two new adversarial
-reviewers. Convert any accepted integration finding into a new work item and run the
-same loop. For a single-item queue only, the item's last two fresh reviews may also
-serve as the aggregate reviews when they received the exact final diff, the causal
-surface and behavior matrix, and the full integration output; otherwise run two new
-aggregate reviews.
+### 4. Improve the active process
 
-Declare completion only when the queue is empty, integration checks pass, both
-final reviewers are clean, and no accepted finding or unexplained risk remains.
-Report the completed work, verification evidence, review outcome, and any explicit
-limitations in the final response.
+Classify evidenced failures. When the same failure class occurs in at least two
+items, treat it as a process defect:
 
-Measure progress by shrinking failing checks, accepted findings, or unresolved work
-items. If the same blocker persists or none of those measures improves for three
-consecutive rounds, mark the affected work `blocked`. Report the evidence, three
-attempts, and the exact user decision or external change needed. Escalate
-immediately instead when continuing would require new authority or unsafe actions.
-Also stop at any declared hard budget even when progress is measurable. Report
-progress separately from completion and never convert budget exhaustion into a
-clean result.
+- spawn a mapper/fixer to update the active guide, queue generator, or relevant
+  review rubric;
+- identify completed or in-flight items exposed to that class and requeue only
+  those items;
+- apply the correction to all remaining items;
+- leave this installed skill unchanged.
 
-When required verification cannot execute, distinguish missing runtime evidence
-from a code defect. Use an independent executable oracle when the repository
-provides one; otherwise block before spending repeated review rounds on speculative
-hardening. Adversarial reasoning cannot replace the primary behavioral gate.
+Measure progress by fewer oracle failures and fewer unresolved queue items. If the
+same blocker persists or neither measure improves across three consecutive attempts,
+mark the affected work `blocked` with the attempts and required external decision.
+
+### 5. Parallelize only isolated work
+
+In a shared working tree, keep exactly one writer active. After the trial succeeds,
+use up to four concurrent writer lanes only when the runtime provides isolated
+worktrees or equivalent filesystems, every lane owns non-overlapping paths, and the
+orchestrator has a deterministic integration order. Reviewers remain read-only.
+
+Integrate lane patches one at a time and run the relevant item oracle after each
+integration. If safe isolation is unavailable, continue sequentially; do not treat
+reduced parallelism as a blocker.
+
+### 6. Finish the factory
+
+After the queue is empty, run the full integration oracle. Completion requires:
+
+- the generated queue is empty;
+- the full oracle passes;
+- no test or check was removed, skipped, disabled, or weakened;
+- every accepted finding has been addressed;
+- remaining limitations and risks are reported.
+
+Do not require an additional global pair of `CLEAN` reviews. If the full oracle
+produces failures, convert each reproducible failure group into new queue items.
+Review cannot substitute for an unavailable or failing full oracle.
+
+## Run Patch Mode
+
+Use Patch Mode for one high-risk change set. Do not create Factory artifacts, a
+bulk queue, a trial, or a global final review.
+
+1. Build the compact item contract and declare a standard budget of four fresh role
+   contexts: one implementer, two parallel reviewers, and one fixer. The orchestrator
+   context is not counted.
+2. Spawn the implementer to make the complete change and run targeted checks.
+3. Send the final diff and raw check output to the two reviewers concurrently.
+4. Adjudicate supported findings. Spawn the fixer even when there are no accepted
+   findings; in that case it performs no edit and confirms the handoff.
+5. Run targeted and affordable integration oracles against the resulting tree.
+
+Complete when the acceptance criteria and oracles pass, no accepted finding remains,
+and no forbidden shortcut exists. Re-enter review only when the fixer materially
+expanded the declared change boundary or an oracle still fails. Represent the
+remaining failure as one bounded follow-up item and keep the total fresh role-context
+budget at or below seven. Otherwise stop as `blocked` rather than adding speculative
+review rounds.
+
+## Report the outcome
+
+Report the selected mode, completed and blocked items, oracle commands and raw
+outcomes, accepted and rejected review counts, contexts and fix rounds used, process
+changes made during Factory Mode, and explicit residual risks. Distinguish progress,
+completion, and budget or capability blockers.

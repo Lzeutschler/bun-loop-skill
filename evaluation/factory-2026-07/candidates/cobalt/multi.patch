@@ -1,0 +1,386 @@
+diff --git a/port/src/main.rs b/port/src/main.rs
+index cc62984..0ee25ea 100644
+--- a/port/src/main.rs
++++ b/port/src/main.rs
+@@ -1,16 +1,160 @@
+ mod ops;
+ 
+-enum Output { Text(String), Number(i64), Texts(Vec<String>) }
++enum Output {
++    Text(String),
++    Number(f64),
++    Texts(Vec<String>),
++}
++
++fn parse_number(value: &str) -> f64 {
++    fn is_js_whitespace(ch: char) -> bool {
++        matches!(
++            ch,
++            '\u{0009}'..='\u{000d}'
++                | '\u{0020}'
++                | '\u{00a0}'
++                | '\u{1680}'
++                | '\u{2000}'..='\u{200a}'
++                | '\u{2028}'
++                | '\u{2029}'
++                | '\u{202f}'
++                | '\u{205f}'
++                | '\u{3000}'
++                | '\u{feff}'
++        )
++    }
++
++    let value = value.trim_matches(is_js_whitespace);
++    if value.is_empty() {
++        return 0.0;
++    }
++    match value {
++        "Infinity" | "+Infinity" => return f64::INFINITY,
++        "-Infinity" => return f64::NEG_INFINITY,
++        _ => {}
++    }
++
++    let (radix, digits) =
++        if let Some(digits) = value.strip_prefix("0x").or_else(|| value.strip_prefix("0X")) {
++            (16, digits)
++        } else if let Some(digits) = value.strip_prefix("0o").or_else(|| value.strip_prefix("0O")) {
++            (8, digits)
++        } else if let Some(digits) = value.strip_prefix("0b").or_else(|| value.strip_prefix("0B")) {
++            (2, digits)
++        } else {
++            let bytes = value.as_bytes();
++            let mut cursor = usize::from(matches!(bytes.first(), Some(b'+' | b'-')));
++            let mut digits = 0;
++            while matches!(bytes.get(cursor), Some(b'0'..=b'9')) {
++                cursor += 1;
++                digits += 1;
++            }
++            if bytes.get(cursor) == Some(&b'.') {
++                cursor += 1;
++                while matches!(bytes.get(cursor), Some(b'0'..=b'9')) {
++                    cursor += 1;
++                    digits += 1;
++                }
++            }
++            if matches!(bytes.get(cursor), Some(b'e' | b'E')) {
++                cursor += 1;
++                if matches!(bytes.get(cursor), Some(b'+' | b'-')) {
++                    cursor += 1;
++                }
++                let exponent_start = cursor;
++                while matches!(bytes.get(cursor), Some(b'0'..=b'9')) {
++                    cursor += 1;
++                }
++                if cursor == exponent_start {
++                    return f64::NAN;
++                }
++            }
++            if digits == 0 || cursor != bytes.len() {
++                return f64::NAN;
++            }
++            return value.parse().unwrap_or(f64::NAN);
++        };
++
++    if digits.is_empty() {
++        return f64::NAN;
++    }
++    let mut number = 0.0;
++    for ch in digits.chars() {
++        let Some(digit) = ch.to_digit(radix) else {
++            return f64::NAN;
++        };
++        number = number * radix as f64 + digit as f64;
++    }
++    number
++}
++
++fn render_number(value: f64) -> String {
++    if !value.is_finite() {
++        return "null".to_owned();
++    }
++    if value == 0.0 {
++        return "0".to_owned();
++    }
++
++    let sign = if value.is_sign_negative() { "-" } else { "" };
++    let raw = value.abs().to_string();
++    let (mantissa, exponent) = raw
++        .split_once('e')
++        .or_else(|| raw.split_once('E'))
++        .map_or((raw.as_str(), 0), |(mantissa, exponent)| {
++            (mantissa, exponent.parse::<i32>().unwrap())
++        });
++    let decimal = mantissa.find('.').unwrap_or(mantissa.len()) as i32;
++    let mut digits: String = mantissa.chars().filter(|ch| *ch != '.').collect();
++    let leading_zeroes = digits.chars().take_while(|ch| *ch == '0').count();
++    digits.drain(..leading_zeroes);
++    let n = decimal + exponent - leading_zeroes as i32;
++    while digits.ends_with('0') {
++        digits.pop();
++    }
++    let k = digits.len() as i32;
++
++    let body = if k <= n && n <= 21 {
++        format!("{digits}{}", "0".repeat((n - k) as usize))
++    } else if 0 < n && n <= 21 {
++        let split = n as usize;
++        format!("{}.{}", &digits[..split], &digits[split..])
++    } else if -6 < n && n <= 0 {
++        format!("0.{}{}", "0".repeat((-n) as usize), digits)
++    } else {
++        let exponent = n - 1;
++        let fraction = if digits.len() == 1 {
++            digits
++        } else {
++            format!("{}.{}", &digits[..1], &digits[1..])
++        };
++        if exponent >= 0 {
++            format!("{fraction}e+{exponent}")
++        } else {
++            format!("{fraction}e{exponent}")
++        }
++    };
++    format!("{sign}{body}")
++}
+ 
+ fn escape_json(value: &str) -> String {
++    const HEX: &[u8; 16] = b"0123456789abcdef";
+     let mut out = String::from("\"");
+     for ch in value.chars() {
+         match ch {
+             '\\' => out.push_str("\\\\"),
+             '"' => out.push_str("\\\""),
++            '\u{0008}' => out.push_str("\\b"),
++            '\u{000c}' => out.push_str("\\f"),
+             '\n' => out.push_str("\\n"),
+             '\r' => out.push_str("\\r"),
+             '\t' => out.push_str("\\t"),
++            c if c <= '\u{001f}' => {
++                let value = c as usize;
++                out.push_str("\\u00");
++                out.push(HEX[value >> 4] as char);
++                out.push(HEX[value & 0x0f] as char);
++            }
+             c => out.push(c),
+         }
+     }
+@@ -21,8 +165,15 @@ fn escape_json(value: &str) -> String {
+ fn render(output: Output) -> String {
+     match output {
+         Output::Text(value) => escape_json(&value),
+-        Output::Number(value) => value.to_string(),
+-        Output::Texts(values) => format!("[{}]", values.iter().map(|v| escape_json(v)).collect::<Vec<_>>().join(",")),
++        Output::Number(value) => render_number(value),
++        Output::Texts(values) => format!(
++            "[{}]",
++            values
++                .iter()
++                .map(|value| escape_json(value))
++                .collect::<Vec<_>>()
++                .join(",")
++        ),
+     }
+ }
+ 
+@@ -31,11 +182,21 @@ fn main() {
+     let op = args.first().expect("operation").as_str();
+     let values = &args[1..];
+     let output = match op {
+-        "cobalt_window" => Output::Text(ops::window::run(&values[0], values[1].parse().unwrap(), values[2].parse().unwrap())),
+-        "cobalt_tail" => Output::Text(ops::tail::run(&values[0], values[1].parse().unwrap())),
+-        "cobalt_floor_bucket" => Output::Number(ops::floor_bucket::run(values[0].parse().unwrap(), values[1].parse().unwrap())),
+-        "cobalt_wrap_index" => Output::Number(ops::wrap_index::run(values[0].parse().unwrap(), values[1].parse().unwrap())),
+-        "cobalt_escaped_fields" => Output::Texts(ops::escaped_fields::run(&values[0], values[1].chars().next().unwrap())),
++        "cobalt_window" => Output::Text(ops::window::run(
++            &values[0],
++            parse_number(&values[1]),
++            parse_number(&values[2]),
++        )),
++        "cobalt_tail" => Output::Text(ops::tail::run(&values[0], parse_number(&values[1]))),
++        "cobalt_floor_bucket" => Output::Number(ops::floor_bucket::run(
++            parse_number(&values[0]),
++            parse_number(&values[1]),
++        )),
++        "cobalt_wrap_index" => Output::Number(ops::wrap_index::run(
++            parse_number(&values[0]),
++            parse_number(&values[1]),
++        )),
++        "cobalt_escaped_fields" => Output::Texts(ops::escaped_fields::run(&values[0], &values[1])),
+         "cobalt_escaped_pairs" => Output::Texts(ops::escaped_pairs::run(&values[0])),
+         "cobalt_stable_unique" => Output::Texts(ops::stable_unique::run(values)),
+         "cobalt_stable_merge" => Output::Texts(ops::stable_merge::run(values)),
+diff --git a/port/src/ops/escaped_fields.rs b/port/src/ops/escaped_fields.rs
+index a56fc45..69fc748 100644
+--- a/port/src/ops/escaped_fields.rs
++++ b/port/src/ops/escaped_fields.rs
+@@ -1,3 +1,32 @@
+-pub fn run(input: &str, delimiter: char) -> Vec<String> {
+-    input.split(delimiter).map(str::to_owned).collect()
++pub fn run(input: &str, delimiter: &str) -> Vec<String> {
++    let delimiter = {
++        let mut chars = delimiter.chars();
++        match (chars.next(), chars.next()) {
++            (Some(delimiter), None) => Some(delimiter),
++            _ => None,
++        }
++    };
++    let mut result = Vec::new();
++    let mut current = String::new();
++    let mut escaped = false;
++
++    for ch in input.chars() {
++        if escaped {
++            current.push(ch);
++            escaped = false;
++        } else if ch == '\\' {
++            escaped = true;
++        } else if Some(ch) == delimiter {
++            result.push(current);
++            current = String::new();
++        } else {
++            current.push(ch);
++        }
++    }
++
++    if escaped {
++        current.push('\\');
++    }
++    result.push(current);
++    result
+ }
+diff --git a/port/src/ops/escaped_pairs.rs b/port/src/ops/escaped_pairs.rs
+index cc4ebaa..ad58f65 100644
+--- a/port/src/ops/escaped_pairs.rs
++++ b/port/src/ops/escaped_pairs.rs
+@@ -1,6 +1,10 @@
+ pub fn run(input: &str) -> Vec<String> {
+-    input.split(';').map(|entry| {
+-        let (key, value) = entry.split_once('=').unwrap_or((entry, ""));
+-        format!("{key}:{value}")
+-    }).collect()
++    super::escaped_fields::run(input, ";")
++        .into_iter()
++        .map(|entry| {
++            let mut pair = super::escaped_fields::run(&entry, "=").into_iter();
++            let key = pair.next().unwrap_or_default();
++            format!("{key}:{}", pair.collect::<Vec<_>>().join("="))
++        })
++        .collect()
+ }
+diff --git a/port/src/ops/floor_bucket.rs b/port/src/ops/floor_bucket.rs
+index 934b882..5f04cc1 100644
+--- a/port/src/ops/floor_bucket.rs
++++ b/port/src/ops/floor_bucket.rs
+@@ -1 +1,3 @@
+-pub fn run(value: i64, width: i64) -> i64 { value / width }
++pub fn run(value: f64, width: f64) -> f64 {
++    (value / width).floor()
++}
+diff --git a/port/src/ops/stable_merge.rs b/port/src/ops/stable_merge.rs
+index 6d352c2..a8c30e4 100644
+--- a/port/src/ops/stable_merge.rs
++++ b/port/src/ops/stable_merge.rs
+@@ -1,7 +1,13 @@
++use std::collections::HashSet;
++
+ pub fn run(values: &[String]) -> Vec<String> {
+     let split = values.iter().position(|v| v == "--").unwrap_or(values.len());
+-    let mut result = values[..split].iter().chain(values.get(split + 1..).unwrap_or(&[])).cloned().collect::<Vec<_>>();
+-    result.sort();
+-    result.dedup();
+-    result
++    let merged = values[..split]
++        .iter()
++        .chain(values.get(split + 1..).unwrap_or(&[]));
++    let mut seen = HashSet::new();
++    merged
++        .filter(|value| seen.insert(value.as_str()))
++        .cloned()
++        .collect()
+ }
+diff --git a/port/src/ops/stable_unique.rs b/port/src/ops/stable_unique.rs
+index 4315a17..f4415b3 100644
+--- a/port/src/ops/stable_unique.rs
++++ b/port/src/ops/stable_unique.rs
+@@ -1,6 +1,10 @@
++use std::collections::HashSet;
++
+ pub fn run(values: &[String]) -> Vec<String> {
+-    let mut result = values.to_vec();
+-    result.sort();
+-    result.dedup();
+-    result
++    let mut seen = HashSet::new();
++    values
++        .iter()
++        .filter(|value| seen.insert(value.as_str()))
++        .cloned()
++        .collect()
+ }
+diff --git a/port/src/ops/tail.rs b/port/src/ops/tail.rs
+index ed88839..48079e2 100644
+--- a/port/src/ops/tail.rs
++++ b/port/src/ops/tail.rs
+@@ -1,4 +1,16 @@
+-pub fn run(input: &str, count: usize) -> String {
+-    let bytes = input.as_bytes();
+-    String::from_utf8_lossy(&bytes[bytes.len().saturating_sub(count)..]).into_owned()
++pub fn run(input: &str, count: f64) -> String {
++    let chars: Vec<char> = input.chars().collect();
++    let index = if count.is_nan() { -0.0 } else { -count.trunc() };
++    let len_as_number = chars.len() as f64;
++    let begin = if index < 0.0 {
++        if index <= -len_as_number {
++            0
++        } else {
++            (len_as_number + index) as usize
++        }
++    } else {
++        index.min(len_as_number) as usize
++    };
++
++    chars[begin..].iter().collect()
+ }
+diff --git a/port/src/ops/window.rs b/port/src/ops/window.rs
+index 11e6f16..af1bb02 100644
+--- a/port/src/ops/window.rs
++++ b/port/src/ops/window.rs
+@@ -1,5 +1,25 @@
+-pub fn run(input: &str, start: isize, count: usize) -> String {
+-    let bytes = input.as_bytes();
+-    let begin = if start < 0 { bytes.len().saturating_sub((-start) as usize) } else { start as usize };
+-    String::from_utf8_lossy(&bytes[begin.min(bytes.len())..(begin + count).min(bytes.len())]).into_owned()
++fn slice_index(index: f64, len: usize) -> usize {
++    let index = if index.is_nan() { 0.0 } else { index.trunc() };
++    let len_as_number = len as f64;
++    if index < 0.0 {
++        if index <= -len_as_number {
++            0
++        } else {
++            (len_as_number + index) as usize
++        }
++    } else {
++        index.min(len_as_number) as usize
++    }
++}
++
++pub fn run(input: &str, start: f64, count: f64) -> String {
++    let chars: Vec<char> = input.chars().collect();
++    let begin = slice_index(start, chars.len());
++    let end = slice_index(start + count, chars.len());
++
++    if end <= begin {
++        String::new()
++    } else {
++        chars[begin..end].iter().collect()
++    }
+ }
+diff --git a/port/src/ops/wrap_index.rs b/port/src/ops/wrap_index.rs
+index abc3ff4..3df5ccb 100644
+--- a/port/src/ops/wrap_index.rs
++++ b/port/src/ops/wrap_index.rs
+@@ -1 +1,3 @@
+-pub fn run(value: i64, size: i64) -> i64 { value % size }
++pub fn run(value: f64, size: f64) -> f64 {
++    ((value % size) + size) % size
++}

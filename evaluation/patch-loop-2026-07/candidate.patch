@@ -1,0 +1,48 @@
+diff --git a/src/parse-list.js b/src/parse-list.js
+index 5f14b0a..abba010 100644
+--- a/src/parse-list.js
++++ b/src/parse-list.js
+@@ -1,7 +1,42 @@
+ "use strict";
+ 
+ function parseList(input) {
+-  return input.split(",");
++  if (typeof input !== "string") {
++    throw new TypeError("List input must be a string");
++  }
++
++  const values = [];
++  let value = "";
++
++  for (let index = 0; index < input.length; index += 1) {
++    const character = input[index];
++
++    if (character === ",") {
++      values.push(value);
++      value = "";
++      continue;
++    }
++
++    if (character === "\\") {
++      if (index + 1 >= input.length) {
++        throw new SyntaxError("Dangling escape in list");
++      }
++
++      const escapedCharacter = input[index + 1];
++      if (escapedCharacter !== "," && escapedCharacter !== "\\") {
++        throw new SyntaxError(`Invalid escape sequence: \\${escapedCharacter}`);
++      }
++
++      value += escapedCharacter;
++      index += 1;
++      continue;
++    }
++
++    value += character;
++  }
++
++  values.push(value);
++  return values;
+ }
+ 
+ module.exports = { parseList };

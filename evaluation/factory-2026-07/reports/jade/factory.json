@@ -1,0 +1,305 @@
+{
+  "schema_version": 1,
+  "seed": "jade",
+  "rust_image": "docker.io/library/rust:1.88.0-slim-bookworm@sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89",
+  "backlog_resolved": true,
+  "build": {
+    "passed": true,
+    "status": 0,
+    "stdout": "",
+    "stderr": "   Compiling factory-port v0.1.0 (/work/port)\n    Finished `release` profile [optimized] target(s) in 1.28s\n"
+  },
+  "candidate_paths": [
+    "port/src/main.rs",
+    "port/src/ops/escaped_fields.rs",
+    "port/src/ops/escaped_pairs.rs",
+    "port/src/ops/floor_bucket.rs",
+    "port/src/ops/stable_merge.rs",
+    "port/src/ops/stable_unique.rs",
+    "port/src/ops/tail.rs",
+    "port/src/ops/window.rs",
+    "port/src/ops/wrap_index.rs"
+  ],
+  "disallowed_paths": [],
+  "protected_failures": [],
+  "visible": {
+    "passed": 8,
+    "total": 8,
+    "records": [
+      {
+        "id": "jade_window:1",
+        "operation": "jade_window",
+        "passed": true,
+        "expected": "🙂Bé",
+        "actual": "🙂Bé"
+      },
+      {
+        "id": "jade_tail:2",
+        "operation": "jade_tail",
+        "passed": true,
+        "expected": "e-🚀",
+        "actual": "e-🚀"
+      },
+      {
+        "id": "jade_floor_bucket:3",
+        "operation": "jade_floor_bucket",
+        "passed": true,
+        "expected": -4,
+        "actual": -4
+      },
+      {
+        "id": "jade_wrap_index:4",
+        "operation": "jade_wrap_index",
+        "passed": true,
+        "expected": 2,
+        "actual": 2
+      },
+      {
+        "id": "jade_escaped_fields:5",
+        "operation": "jade_escaped_fields",
+        "passed": true,
+        "expected": [
+          "one",
+          "two|inner",
+          "jade"
+        ],
+        "actual": [
+          "one",
+          "two|inner",
+          "jade"
+        ]
+      },
+      {
+        "id": "jade_escaped_pairs:6",
+        "operation": "jade_escaped_pairs",
+        "passed": true,
+        "expected": [
+          "name:jade",
+          "note:left=right",
+          "empty:"
+        ],
+        "actual": [
+          "name:jade",
+          "note:left=right",
+          "empty:"
+        ]
+      },
+      {
+        "id": "jade_stable_unique:7",
+        "operation": "jade_stable_unique",
+        "passed": true,
+        "expected": [
+          "pear",
+          "jade",
+          "apple"
+        ],
+        "actual": [
+          "pear",
+          "jade",
+          "apple"
+        ]
+      },
+      {
+        "id": "jade_stable_merge:8",
+        "operation": "jade_stable_merge",
+        "passed": true,
+        "expected": [
+          "zeta",
+          "jade",
+          "alpha"
+        ],
+        "actual": [
+          "zeta",
+          "jade",
+          "alpha"
+        ]
+      }
+    ]
+  },
+  "hidden": {
+    "passed": 16,
+    "total": 16,
+    "records": [
+      {
+        "id": "jade_window:1",
+        "operation": "jade_window",
+        "passed": true,
+        "expected": "jad",
+        "actual": "jad"
+      },
+      {
+        "id": "jade_window:2",
+        "operation": "jade_window",
+        "passed": true,
+        "expected": "🙂",
+        "actual": "🙂"
+      },
+      {
+        "id": "jade_tail:3",
+        "operation": "jade_tail",
+        "passed": true,
+        "expected": "x🙂yéjade",
+        "actual": "x🙂yéjade"
+      },
+      {
+        "id": "jade_tail:4",
+        "operation": "jade_tail",
+        "passed": true,
+        "expected": "de",
+        "actual": "de"
+      },
+      {
+        "id": "jade_floor_bucket:5",
+        "operation": "jade_floor_bucket",
+        "passed": true,
+        "expected": -4,
+        "actual": -4
+      },
+      {
+        "id": "jade_floor_bucket:6",
+        "operation": "jade_floor_bucket",
+        "passed": true,
+        "expected": -5,
+        "actual": -5
+      },
+      {
+        "id": "jade_wrap_index:7",
+        "operation": "jade_wrap_index",
+        "passed": true,
+        "expected": 1,
+        "actual": 1
+      },
+      {
+        "id": "jade_wrap_index:8",
+        "operation": "jade_wrap_index",
+        "passed": true,
+        "expected": 1,
+        "actual": 1
+      },
+      {
+        "id": "jade_escaped_fields:9",
+        "operation": "jade_escaped_fields",
+        "passed": true,
+        "expected": [
+          "a",
+          "",
+          "b|c",
+          "trail\\"
+        ],
+        "actual": [
+          "a",
+          "",
+          "b|c",
+          "trail\\"
+        ]
+      },
+      {
+        "id": "jade_escaped_fields:10",
+        "operation": "jade_escaped_fields",
+        "passed": true,
+        "expected": [
+          "jade\\",
+          "x"
+        ],
+        "actual": [
+          "jade\\",
+          "x"
+        ]
+      },
+      {
+        "id": "jade_escaped_pairs:11",
+        "operation": "jade_escaped_pairs",
+        "passed": true,
+        "expected": [
+          "a:1",
+          "b:two;parts",
+          "c:three=parts"
+        ],
+        "actual": [
+          "a:1",
+          "b:two;parts",
+          "c:three=parts"
+        ]
+      },
+      {
+        "id": "jade_escaped_pairs:12",
+        "operation": "jade_escaped_pairs",
+        "passed": true,
+        "expected": [
+          ":empty-key",
+          "empty-value:",
+          "slash:tail\\"
+        ],
+        "actual": [
+          ":empty-key",
+          "empty-value:",
+          "slash:tail\\"
+        ]
+      },
+      {
+        "id": "jade_stable_unique:13",
+        "operation": "jade_stable_unique",
+        "passed": true,
+        "expected": [
+          "jade",
+          "β",
+          "alpha",
+          ""
+        ],
+        "actual": [
+          "jade",
+          "β",
+          "alpha",
+          ""
+        ]
+      },
+      {
+        "id": "jade_stable_unique:14",
+        "operation": "jade_stable_unique",
+        "passed": true,
+        "expected": [
+          "10",
+          "2",
+          "1"
+        ],
+        "actual": [
+          "10",
+          "2",
+          "1"
+        ]
+      },
+      {
+        "id": "jade_stable_merge:15",
+        "operation": "jade_stable_merge",
+        "passed": true,
+        "expected": [
+          "jade",
+          "β",
+          "alpha",
+          ""
+        ],
+        "actual": [
+          "jade",
+          "β",
+          "alpha",
+          ""
+        ]
+      },
+      {
+        "id": "jade_stable_merge:16",
+        "operation": "jade_stable_merge",
+        "passed": true,
+        "expected": [
+          "10",
+          "2",
+          "1"
+        ],
+        "actual": [
+          "10",
+          "2",
+          "1"
+        ]
+      }
+    ]
+  }
+}

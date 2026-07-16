@@ -25,9 +25,10 @@ The project uses only Node.js built-ins at runtime. Node.js 18 or newer is requi
 
 ### Skill behavior
 
-Edit only `skills/bun-loop-skill/SKILL.md`; it is the canonical source copied to
-every runtime. Preserve the two-key frontmatter contract (`name` and `description`)
-and keep the file below 500 lines.
+Edit the canonical `skills/bun-loop-skill/` directory; it is copied recursively to
+every runtime. Keep routing and core workflow in `SKILL.md`, and put risk-specific
+checks in `references/review-rubrics.md`. Preserve the two-key frontmatter contract
+(`name` and `description`) and keep the main file below 500 lines.
 
 Behavioral changes require a forward test with fresh agent contexts. Provide the
 raw task or fixture, not the expected finding, so reviewers cannot reconstruct the
@@ -44,6 +45,7 @@ prompt forks unless the native format genuinely requires conversion.
 Keep the version in these files synchronized:
 
 - `package.json`
+- `package-lock.json`
 - `.claude-plugin/plugin.json`
 - `.claude-plugin/marketplace.json`
 
@@ -55,7 +57,8 @@ Update `CHANGELOG.md` for user-visible changes.
 - Run `npm pack --dry-run` and inspect the package contents.
 - Add or update tests for behavior changes.
 - Document compatibility changes in `README.md`.
-- Confirm the change does not weaken adversarial review or workspace safety.
+- Confirm reviewers remain independent, executable oracles retain completion
+  authority, and workspace safety is not weakened.
 - Confirm no generated cache, temporary fixture, or local runtime install is added.
 
 By contributing, you agree that your contribution is licensed under the MIT License.

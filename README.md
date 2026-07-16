@@ -2,7 +2,9 @@
 
 # Bun Loop
 
-**Implement. Review adversarially. Fix. Repeat until the evidence says done.**
+![Bun Loop multi-agent engineering workflow](assets/bun-loop-hero.png)
+
+**Prepare the factory. Implement. Review adversarially. Let the oracle decide.**
 
 [![Validate](https://github.com/Lzeutschler/bun-loop-skill/actions/workflows/validate.yml/badge.svg)](https://github.com/Lzeutschler/bun-loop-skill/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -14,50 +16,52 @@
 
 ## What is Bun Loop?
 
-Bun Loop is a portable agent skill for complex, high-risk software work. It turns
-one coding agent into an orchestrator that delegates implementation, sends the
-result to two independent adversarial reviewers, assigns accepted findings to a
-fresh fixer, and repeats until explicit quality gates pass.
+Bun Loop is a portable agent skill with two explicit workflows. Factory Mode turns
+a repeatable migration, port, compiler queue, or test backlog into an oracle-driven
+engineering production line. Patch Mode applies a short implement-review-fix cycle
+to one high-risk change set.
 
 The workflow is inspired by Jarred Sumner's
-[Bun rewrite in Rust](https://bun.com/blog/bun-in-rust): separate the author from
-the reviewers, assume plausible code is wrong, and improve the process whenever a
-defect pattern repeats.
+[Bun rewrite in Rust](https://bun.com/blog/bun-in-rust): prepare shared mapping
+artifacts, separate authors from reviewers, let compilers and tests generate the
+queue, and improve the active workflow whenever a defect pattern repeats.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-  Contract["Task contract"] --> Queue["Bounded work item"]
-  Queue --> Implementer["Implementer"]
-  Implementer --> ReviewA["Adversarial reviewer A"]
-  Implementer --> ReviewB["Adversarial reviewer B"]
-  ReviewA --> Orchestrator["Orchestrator adjudicates evidence"]
-  ReviewB --> Orchestrator
-  Orchestrator -->|"Accepted findings"| Fixer["Fresh fixer"]
-  Fixer --> ReviewA
-  Orchestrator -->|"Clean + verified"| Done["Done"]
+  Invoke["Explicit $bun-loop-skill"] --> Router{"All four Factory gates pass?"}
+  Router -->|"Yes"| Prep["Factory: map + review preparation"]
+  Prep --> Trial["Three-item trial"]
+  Trial --> Queue["Implement → 2 reviews → fix → item oracle"]
+  Queue -->|"Repeated defect"| Process["Update active workflow + requeue affected items"]
+  Process --> Queue
+  Queue -->|"Queue empty"| Full["Full integration oracle"]
+  Router -->|"No"| Patch["Patch: implement → 2 reviews → fix → verify"]
+  Full --> Done["Done or blocked by evidence"]
+  Patch --> Done
 ```
 
-The skill enforces six ideas:
+Both modes share these ideas:
 
 - **Split contexts:** implementers do not review their own work; reviewers do not
   inherit the implementer's reasoning.
 - **Two adversarial reviews:** each reviewer tries to demonstrate how the patch
   breaks, regresses, or violates the task contract.
-- **One writer at a time:** parallelism is used for read-only review, not competing
-  edits in a shared worktree.
-- **Evidence-based completion:** compilation is evidence, not completion. Tests,
-  acceptance criteria, review findings, and integration checks determine done.
+- **Oracle authority:** reviewers generate bug hypotheses; executable tests,
+  compilers, parity checks, and integration gates determine correctness.
+- **Safe writers:** a shared tree has one writer. Factory Mode may use up to four
+  isolated, non-overlapping writer lanes after its trial succeeds.
 - **Fix the process:** repeated defect classes update the active contract and review
   rubric instead of being patched one by one forever.
-- **Bound the loop:** scope, work items, fix rounds, fresh contexts, and expensive
-  checks receive hard limits up front; exhausting a limit blocks the task instead
-  of weakening a quality gate.
+- **Bound the loop:** contexts, writers, queue items, and expensive oracle runs have
+  hard limits; exhausting one blocks the run instead of weakening evidence.
 
-See [EVALUATION.md](EVALUATION.md) for the five-task blind SWE-bench Verified
-comparison against a single coding agent. The current result is negative: Bun Loop
-resolved 0/5 tasks versus 1/5 for the control while using about 4× the input tokens.
+See [EVALUATION.md](EVALUATION.md) for both negative comparisons. The old 0.2
+universal patch loop resolved 0/5 blind tasks versus 1/5 for its control. The 0.3
+Factory study tied both controls at 3/3 backlogs while using about 23× the
+single-agent and 15× the unstructured multi-agent input tokens. Factory is correct
+in that fixture, but no accuracy or cost benefit has been demonstrated.
 
 ## Quick start
 
@@ -106,14 +110,15 @@ runtime has been exercised end to end.
 
 ## Full-loop capability status
 
-The full workflow additionally requires a runtime to expose independent subagent
-contexts, two parallel read-only reviewers, a separate writing fixer, and enough
-context capacity to complete the final review gate.
+Both workflows require independent subagent contexts, two parallel read-only
+reviewers, and a separate fixer. Factory Mode additionally benefits from isolated
+working trees for up to four non-overlapping writer lanes; without them it runs
+sequentially.
 
 | Runtime | Installer/package status | Full Bun Loop execution status |
 |---|---|---|
 | Claude Code | Layout covered; plugin manifests statically validated | Not yet smoke-tested in a real Claude runtime |
-| Codex | Layout covered; skill metadata validated | Five paired blind runs completed with the official harness; Bun Loop resolved 0/5 versus 1/5 for the control |
+| Codex | Layout covered; skill metadata validated | The old 0.2 Patch study and the recorded 0.3 three-way Factory study are complete; neither demonstrated an outcome advantage |
 | Cursor | Layout covered | Not yet smoke-tested in a real Cursor runtime |
 | GitHub Copilot | Layout covered | Not yet smoke-tested in a real Copilot runtime |
 | OpenCode | Layout covered | Not yet smoke-tested in a real OpenCode runtime |
@@ -158,8 +163,10 @@ above. Preserve the directory name and keep `SKILL.md` directly inside it:
 <runtime skills root>/
 └── bun-loop-skill/
     ├── SKILL.md
-    └── agents/
-        └── openai.yaml
+    ├── agents/
+    │   └── openai.yaml
+    └── references/
+        └── review-rubrics.md
 ```
 
 Restart the runtime after copying. The `agents/openai.yaml` file provides Codex UI
@@ -207,12 +214,24 @@ then install again to bring it under installer management.
 
 ## Using the skill
 
-Invoke it explicitly for a complex task:
+Invoke Factory Mode for a repeatable backlog with an executable oracle:
 
 ```text
-Use $bun-loop-skill to migrate this subsystem while preserving behavior and
-prove the result through independent adversarial reviews.
+Use $bun-loop-skill factory to port these modules against the existing parity
+suite and process the compiler and test queues.
 ```
+
+Use Patch Mode for one high-risk change set:
+
+```text
+Use $bun-loop-skill patch to implement this lifecycle fix and verify it through
+independent adversarial review and the repository test suite.
+```
+
+A plain explicit `$bun-loop-skill` invocation selects Factory Mode only when a
+repeatable queue, a pre-bulk executable oracle, and transferable process learning
+all exist and preparation plus its three-item trial is expected to consume no more
+than one quarter of the total work. Otherwise it selects Patch Mode.
 
 The beta is explicit-only: invoke `$bun-loop-skill` when you want to authorize its
 multi-agent cost and workflow. It does not trigger implicitly, including for complex
@@ -221,11 +240,11 @@ tasks.
 ## Repository layout
 
 ```text
-skills/bun-loop-skill/   Canonical portable skill
+skills/bun-loop-skill/   Canonical skill and conditional review rubrics
 bin/install.js           User-facing installer CLI
 lib/installer.js         Runtime layouts and safe file operations
 scripts/validate.js      Repository and manifest validation
-scripts/*evaluation*     Blind-evaluation selection and prompt-boundary tools
+scripts/*evaluation*     Blind-evaluation, fixture, sealing, and prompt tools
 evaluation/              Machine-readable results and archived evaluation evidence
 tests/                   Installer regression tests
 .claude-plugin/          Claude plugin and marketplace metadata

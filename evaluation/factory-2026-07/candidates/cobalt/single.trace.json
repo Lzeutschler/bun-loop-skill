@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "variant": "single",
+  "parse_error": "missing FACTORY_TRACE",
+  "final_message": "FACTORY_TRACE {\"contexts\":1,\"roles\":[\"implementation\",\"review\",\"verification\"],\"fix_rounds\":2,\"workflow_revisions\":0,\"requeues\":0,\"accepted_findings\":9,\"rejected_findings\":0,\"targeted_oracle_runs\":24,\"full_oracle_runs\":2,\"status\":\"passed\"}"
+}

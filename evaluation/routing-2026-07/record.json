@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "date": "2026-07-16",
+  "qualification": "One fresh read-only agent context inspected only the 0.3 SKILL.md and classified the seven fixed scenarios. This is a routing smoke test, not a deterministic runtime conformance test.",
+  "records": [
+    {
+      "id": "A",
+      "scenario": "Plain explicit invocation for 80 similar JavaScript-to-Rust codec ports with per-item and integration parity oracles, transferable Unicode and escaping corrections, and preparation plus trial estimated at 10 percent.",
+      "expected": "FACTORY",
+      "actual": "FACTORY",
+      "evidence": "All four criteria hold, including the one-quarter amortization limit."
+    },
+    {
+      "id": "B",
+      "scenario": "Plain explicit invocation for one high-risk async lifecycle ticket with targeted and integration tests.",
+      "expected": "PATCH",
+      "actual": "PATCH",
+      "evidence": "This is one high-risk change set with executable oracles."
+    },
+    {
+      "id": "C",
+      "scenario": "Plain explicit invocation to rename one local variable.",
+      "expected": "NOT_SUITABLE",
+      "actual": "NOT_SUITABLE",
+      "evidence": "Trivial edits are excluded."
+    },
+    {
+      "id": "D",
+      "scenario": "Plain explicit invocation to explain the current architecture without edits.",
+      "expected": "NOT_SUITABLE",
+      "actual": "NOT_SUITABLE",
+      "evidence": "Read-only questions are excluded."
+    },
+    {
+      "id": "E",
+      "scenario": "Explicit Factory invocation for 40 similar modules when no compiler, tests, executable reference, or runnable reproduction can be established during preparation.",
+      "expected": "BLOCKED_FACTORY",
+      "actual": "BLOCKED_FACTORY",
+      "evidence": "Explicit Factory without an executable oracle blocks after preparation."
+    },
+    {
+      "id": "F",
+      "scenario": "Plain explicit invocation for eight simple ports with a full parity oracle when preparation plus trial is estimated at 60 percent of the work.",
+      "expected": "PATCH",
+      "actual": "PATCH",
+      "evidence": "The work fails the one-quarter amortization gate."
+    },
+    {
+      "id": "G",
+      "scenario": "Explicit Patch invocation for one risky parser compatibility change.",
+      "expected": "PATCH",
+      "actual": "PATCH",
+      "evidence": "Explicit Patch selection is honored."
+    }
+  ]
+}

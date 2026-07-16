@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "variant": "multi",
+  "parse_error": "missing FACTORY_TRACE",
+  "final_message": "FACTORY_TRACE {\"contexts\":4,\"roles\":[\"sequence_and_integration\",\"numeric\",\"escaping\",\"stable_order\"],\"fix_rounds\":1,\"workflow_revisions\":1,\"requeues\":1,\"accepted_findings\":9,\"rejected_findings\":0,\"targeted_oracle_runs\":16,\"full_oracle_runs\":1,\"status\":\"completed\"}"
+}

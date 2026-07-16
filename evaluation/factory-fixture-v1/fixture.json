@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "name": "transformation-port-backlog",
+  "generator": "scripts/generate_factory_fixture.js",
+  "evaluator": "scripts/evaluate_factory_fixture.js",
+  "module_count": 8,
+  "visible_case_count": 8,
+  "hidden_case_count": 16,
+  "recurring_error_classes": {
+    "unicode_indexing": ["window", "tail"],
+    "signed_arithmetic": ["floor_bucket", "wrap_index"],
+    "escaped_delimiters": ["escaped_fields", "escaped_pairs"],
+    "stable_ordering": ["stable_unique", "stable_merge"]
+  },
+  "candidate_write_allowlist": ["port/src/"],
+  "completion": "Build, all visible cases, all hidden cases, protected-file integrity, and path allowlist must pass."
+}

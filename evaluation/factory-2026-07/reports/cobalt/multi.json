@@ -1,0 +1,305 @@
+{
+  "schema_version": 1,
+  "seed": "cobalt",
+  "rust_image": "docker.io/library/rust:1.88.0-slim-bookworm@sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89",
+  "backlog_resolved": true,
+  "build": {
+    "passed": true,
+    "status": 0,
+    "stdout": "",
+    "stderr": "   Compiling factory-port v0.1.0 (/work/port)\n    Finished `release` profile [optimized] target(s) in 1.17s\n"
+  },
+  "candidate_paths": [
+    "port/src/main.rs",
+    "port/src/ops/escaped_fields.rs",
+    "port/src/ops/escaped_pairs.rs",
+    "port/src/ops/floor_bucket.rs",
+    "port/src/ops/stable_merge.rs",
+    "port/src/ops/stable_unique.rs",
+    "port/src/ops/tail.rs",
+    "port/src/ops/window.rs",
+    "port/src/ops/wrap_index.rs"
+  ],
+  "disallowed_paths": [],
+  "protected_failures": [],
+  "visible": {
+    "passed": 8,
+    "total": 8,
+    "records": [
+      {
+        "id": "cobalt_window:1",
+        "operation": "cobalt_window",
+        "passed": true,
+        "expected": "🙂Bé",
+        "actual": "🙂Bé"
+      },
+      {
+        "id": "cobalt_tail:2",
+        "operation": "cobalt_tail",
+        "passed": true,
+        "expected": "t-🚀",
+        "actual": "t-🚀"
+      },
+      {
+        "id": "cobalt_floor_bucket:3",
+        "operation": "cobalt_floor_bucket",
+        "passed": true,
+        "expected": -4,
+        "actual": -4
+      },
+      {
+        "id": "cobalt_wrap_index:4",
+        "operation": "cobalt_wrap_index",
+        "passed": true,
+        "expected": 2,
+        "actual": 2
+      },
+      {
+        "id": "cobalt_escaped_fields:5",
+        "operation": "cobalt_escaped_fields",
+        "passed": true,
+        "expected": [
+          "one",
+          "two|inner",
+          "cobalt"
+        ],
+        "actual": [
+          "one",
+          "two|inner",
+          "cobalt"
+        ]
+      },
+      {
+        "id": "cobalt_escaped_pairs:6",
+        "operation": "cobalt_escaped_pairs",
+        "passed": true,
+        "expected": [
+          "name:cobalt",
+          "note:left=right",
+          "empty:"
+        ],
+        "actual": [
+          "name:cobalt",
+          "note:left=right",
+          "empty:"
+        ]
+      },
+      {
+        "id": "cobalt_stable_unique:7",
+        "operation": "cobalt_stable_unique",
+        "passed": true,
+        "expected": [
+          "pear",
+          "cobalt",
+          "apple"
+        ],
+        "actual": [
+          "pear",
+          "cobalt",
+          "apple"
+        ]
+      },
+      {
+        "id": "cobalt_stable_merge:8",
+        "operation": "cobalt_stable_merge",
+        "passed": true,
+        "expected": [
+          "zeta",
+          "cobalt",
+          "alpha"
+        ],
+        "actual": [
+          "zeta",
+          "cobalt",
+          "alpha"
+        ]
+      }
+    ]
+  },
+  "hidden": {
+    "passed": 16,
+    "total": 16,
+    "records": [
+      {
+        "id": "cobalt_window:1",
+        "operation": "cobalt_window",
+        "passed": true,
+        "expected": "bal",
+        "actual": "bal"
+      },
+      {
+        "id": "cobalt_window:2",
+        "operation": "cobalt_window",
+        "passed": true,
+        "expected": "🙂",
+        "actual": "🙂"
+      },
+      {
+        "id": "cobalt_tail:3",
+        "operation": "cobalt_tail",
+        "passed": true,
+        "expected": "x🙂yécobalt",
+        "actual": "x🙂yécobalt"
+      },
+      {
+        "id": "cobalt_tail:4",
+        "operation": "cobalt_tail",
+        "passed": true,
+        "expected": "lt",
+        "actual": "lt"
+      },
+      {
+        "id": "cobalt_floor_bucket:5",
+        "operation": "cobalt_floor_bucket",
+        "passed": true,
+        "expected": -4,
+        "actual": -4
+      },
+      {
+        "id": "cobalt_floor_bucket:6",
+        "operation": "cobalt_floor_bucket",
+        "passed": true,
+        "expected": -5,
+        "actual": -5
+      },
+      {
+        "id": "cobalt_wrap_index:7",
+        "operation": "cobalt_wrap_index",
+        "passed": true,
+        "expected": 3,
+        "actual": 3
+      },
+      {
+        "id": "cobalt_wrap_index:8",
+        "operation": "cobalt_wrap_index",
+        "passed": true,
+        "expected": 4,
+        "actual": 4
+      },
+      {
+        "id": "cobalt_escaped_fields:9",
+        "operation": "cobalt_escaped_fields",
+        "passed": true,
+        "expected": [
+          "a",
+          "",
+          "b|c",
+          "trail\\"
+        ],
+        "actual": [
+          "a",
+          "",
+          "b|c",
+          "trail\\"
+        ]
+      },
+      {
+        "id": "cobalt_escaped_fields:10",
+        "operation": "cobalt_escaped_fields",
+        "passed": true,
+        "expected": [
+          "cobalt\\",
+          "x"
+        ],
+        "actual": [
+          "cobalt\\",
+          "x"
+        ]
+      },
+      {
+        "id": "cobalt_escaped_pairs:11",
+        "operation": "cobalt_escaped_pairs",
+        "passed": true,
+        "expected": [
+          "a:1",
+          "b:two;parts",
+          "c:three=parts"
+        ],
+        "actual": [
+          "a:1",
+          "b:two;parts",
+          "c:three=parts"
+        ]
+      },
+      {
+        "id": "cobalt_escaped_pairs:12",
+        "operation": "cobalt_escaped_pairs",
+        "passed": true,
+        "expected": [
+          ":empty-key",
+          "empty-value:",
+          "slash:tail\\"
+        ],
+        "actual": [
+          ":empty-key",
+          "empty-value:",
+          "slash:tail\\"
+        ]
+      },
+      {
+        "id": "cobalt_stable_unique:13",
+        "operation": "cobalt_stable_unique",
+        "passed": true,
+        "expected": [
+          "cobalt",
+          "β",
+          "alpha",
+          ""
+        ],
+        "actual": [
+          "cobalt",
+          "β",
+          "alpha",
+          ""
+        ]
+      },
+      {
+        "id": "cobalt_stable_unique:14",
+        "operation": "cobalt_stable_unique",
+        "passed": true,
+        "expected": [
+          "10",
+          "2",
+          "1"
+        ],
+        "actual": [
+          "10",
+          "2",
+          "1"
+        ]
+      },
+      {
+        "id": "cobalt_stable_merge:15",
+        "operation": "cobalt_stable_merge",
+        "passed": true,
+        "expected": [
+          "cobalt",
+          "β",
+          "alpha",
+          ""
+        ],
+        "actual": [
+          "cobalt",
+          "β",
+          "alpha",
+          ""
+        ]
+      },
+      {
+        "id": "cobalt_stable_merge:16",
+        "operation": "cobalt_stable_merge",
+        "passed": true,
+        "expected": [
+          "10",
+          "2",
+          "1"
+        ],
+        "actual": [
+          "10",
+          "2",
+          "1"
+        ]
+      }
+    ]
+  }
+}

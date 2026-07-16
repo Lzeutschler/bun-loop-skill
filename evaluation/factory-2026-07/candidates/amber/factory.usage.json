@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "variant": "factory",
+  "input_tokens": 7409816,
+  "cached_input_tokens": 7222272,
+  "output_tokens": 30084,
+  "reasoning_output_tokens": 11991,
+  "event_count": 300,
+  "patch_bytes": 14791,
+  "wall_clock_seconds": 5007
+}

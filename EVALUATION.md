@@ -1,16 +1,190 @@
 # Evaluation
 
-This document reports both successful and failed evidence. The primary study is a
-blind, paired evaluation on five previously unused SWE-bench Verified tasks using
-the official Docker harness. It found no quality gain from Bun Loop: the skill
-resolved 0/5 tasks and the single-agent control resolved 1/5, while Bun Loop used
-about four times as many input tokens. Bun Loop should therefore be treated as an
-experimental workflow, not a demonstrated accuracy improvement.
+This document reports successful and failed evidence without treating process
+activity as correctness. Two controlled studies have not demonstrated an accuracy
+advantage for Bun Loop:
 
-An earlier two-task exploratory study is retained below because its contamination
-and failures informed the workflow, but it is not a standard benchmark result.
+- The 0.3 Factory study resolved all three controlled backlogs, but so did the
+  single-agent and unstructured multi-agent controls. Factory used about 23× the
+  single-agent input tokens and 15× the multi-agent input tokens.
+- The earlier 0.2 universal patch loop resolved 0/5 blind SWE-bench Verified tasks
+  versus 1/5 for the single-agent control at about 4× the input-token cost.
 
-## Blind official evaluation — July 2026
+Bun Loop remains experimental. A still earlier contaminated two-task exploration
+is retained because it informed the workflow, not as benchmark evidence.
+
+A fresh-context seven-scenario routing smoke test is archived under
+`evaluation/routing-2026-07/`. It covered automatic Factory and Patch selection,
+trivial and read-only exclusions, the missing-oracle Factory blocker, the
+amortization fallback, and explicit Patch selection. All seven matched the contract.
+It is a smoke test, not deterministic runtime conformance or evidence that Patch
+Mode obeys its context budget during real implementation.
+
+A separate fresh-context Patch smoke execution is archived under
+`evaluation/patch-loop-2026-07/`. On a failing parser-compatibility fixture it used
+exactly four role contexts: one implementer, two concurrent read-only reviewers,
+and one fixer. A reviewer found a concrete baseline regression, the fixer corrected
+it without expanding scope, no re-entry occurred, and an independent final oracle
+rerun passed 4/4 tests. This is one execution, not a distributional budget guarantee.
+
+All three archived Factory traces record bounded context counts, active-workflow
+revisions, and requeues. Those summary traces do not retain item-level causality,
+so they cannot independently prove that a still-failing item oracle, rather than a
+different accepted process finding, caused each requeue. A dedicated item-level
+oracle-failure trace test remains prerelease work.
+
+## Controlled Factory evaluation — July 2026
+
+### Question and fixture
+
+This study tested the use case that version 0.3 is designed for rather than another
+set of unrelated tickets: a repeatable Node-to-Rust porting backlog with eight
+independently owned modules, a language-neutral parity oracle, and four recurring
+error classes—Unicode indexing, signed arithmetic, escaped delimiters, and stable
+ordering.
+
+Three deterministic seeds (`amber`, `cobalt`, and `jade`) changed operation names,
+inputs, and numeric boundaries while preserving the same workload shape. Each
+candidate repository contained the authoritative Node implementation, incomplete
+Rust modules, eight visible parity cases, and the pinned offline Rust build command.
+The evaluator-only directory contained sixteen additional cases per seed and hashes
+of every protected source and oracle file.
+
+The complete fixture definition is under `evaluation/factory-fixture-v1/`. Its Rust
+container is pinned to:
+
+```text
+docker.io/library/rust:1.88.0-slim-bookworm@
+sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89
+```
+
+The generator is deterministic, each incomplete base fails its visible oracle, and
+the evaluator-only correct port passes all visible and hidden cases. Repository
+tests regenerate the fixture, validate the clean prompt boundary, and prove seal
+mutation detection.
+
+### Instruction-blind paired protocol
+
+Each seed ran three variants from fresh history-free roots:
+
+1. Bun Loop 0.3 with explicit Factory Mode.
+2. One fresh coding context without the skill or delegation.
+3. An unstructured multi-agent control without the skill, allowed the same maximum
+   context, writer, wall-clock, and oracle budget as Factory Mode.
+
+The clean task object contained only `problem_statement`, `repo`, and `base_commit`.
+Fixed wrappers differed only in treatment and budget instructions. Candidate
+repositories had no evaluator directory, hidden case, gold patch, sibling fixture,
+or repository history beyond `HEAD`. Agents were instructed not to use the network,
+but exact invocation flags were not archived, so enforcement is not independently
+verifiable. This was instruction-blind, not OS-isolated blindness: evaluator data
+lived in a sibling directory in the operator workspace, and coding agents were
+instructed not to read outside their candidate repository. The archive does not
+prove that filesystem boundary.
+
+The operator recorded that all nine patch, usage, and trace triplets were archived
+and jointly sealed before hidden evaluation. The seal was reverified immediately
+before each sealed patch was applied to a fresh base. Hidden evaluation then checked
+build success, eight visible cases, sixteen hidden cases, the `port/src/` write
+allowlist, and protected-file integrity. The hashes prove current artifact integrity;
+because no trusted timestamped execution ledger was captured, they do not
+independently prove that historical ordering.
+
+An initial three-run attempt was discarded because the coding sandbox could not
+reach the Docker oracle. Those partial roots were deleted and all nine recorded
+runs restarted from regenerated fixtures with Docker access. No hidden evaluator
+was run or inspected during the discarded attempt. Exact protocol, seal, candidates,
+usage, sealed traces, normalized aggregate records, reports, and results are
+archived under `evaluation/factory-2026-07/`.
+
+### Results
+
+| Seed | Factory | Single agent | Unstructured multi-agent |
+|---|---:|---:|---:|
+| Amber | 8/8 visible · 16/16 hidden | 8/8 · 16/16 | 8/8 · 16/16 |
+| Cobalt | 8/8 visible · 16/16 hidden | 8/8 · 16/16 | 8/8 · 16/16 |
+| Jade | 8/8 visible · 16/16 hidden | 8/8 · 16/16 | 8/8 · 16/16 |
+| **Resolved backlogs** | **3/3** | **3/3** | **3/3** |
+
+Every candidate built successfully, stayed within the path allowlist, preserved all
+protected files, and passed its 24 evaluated cases (216 candidate-case results
+overall). The preregistered accuracy gate required Factory to resolve more backlogs
+than both controls without additional hidden regressions. It failed because all
+variants tied at 3/3.
+
+### Cost
+
+| Variant | Input / output tokens | Contexts | Summed run time | Patch bytes |
+|---|---:|---:|---:|---:|
+| Factory | 28,577,950 / 79,639 | 108 | 15,232 s | 53,039 |
+| Single agent | 1,245,053 / 33,798 | 3 | 948 s | 27,208 |
+| Unstructured multi-agent | 1,892,893 / 37,572 | 9 | 1,229 s | 30,217 |
+
+Factory used 23.0× the single-agent input tokens, 36× the contexts, and 16.1×
+the summed run time. Against the unstructured multi-agent control it used 15.1×
+the input tokens, 12× the contexts, and 12.4× the summed run time. Factory's three
+runs took approximately 83, 74, and 96 minutes individually.
+
+Token totals are archiver-derived maxima from the available Codex usage events; raw
+event logs and their schema were not sealed, so the exact totals are not independently
+reconstructible from this archive. Context counts and workflow events are
+self-reported. The fixed prompt emitted
+`FACTORY_TRACE` without a colon while the original archiver expected one; sealed
+trace files therefore retain a parse error plus the complete final message. The
+aggregate recovers the JSON from that sealed message without changing candidate
+artifacts. Finding-level oracle confirmations were not captured, so review
+precision is deliberately reported as unavailable.
+
+### What this supports
+
+Factory Mode executed the intended architecture: preparation reviews, a three-item
+trial, per-item implement/review/fix loops, oracle-driven completion, workflow
+revisions, and targeted requeues. Reviewers found concrete language-boundary and
+handoff defects, and every Factory candidate was correct.
+
+It did not improve the outcome. The authoritative source and strong visible oracle
+made the eight-module backlog straightforward enough that one agent solved every
+seed much faster. For a queue this small, preparation and a three-item trial consumed
+too much of the total work to amortize their cost.
+
+Version 0.3 therefore adds an automatic amortization gate: a plain invocation does
+not choose Factory Mode unless preparation plus the trial is expected to consume no
+more than one quarter of the total engineering effort. Explicit Factory requests
+remain available. This post-study routing correction was not itself evaluated by
+the recorded treatment and must not be described as validated.
+
+The next useful evaluation is not another eight-module transparent port. It should
+test a materially larger queue, partial or noisy oracles, cross-item dependencies,
+and failure classes whose process correction can affect many later items. Until
+Factory beats both controls on such a study, there is no evidence for an accuracy
+or cost advantage.
+
+### Limitations
+
+- Three deterministic seeds of one synthetic workload do not estimate a general
+  win rate.
+- Evaluator data was outside candidate repositories but in a readable sibling
+  workspace; compliance with the no-read instruction was not enforced by an OS or
+  container mount boundary.
+- Network use was forbidden by the fixed instructions, but its sandbox enforcement
+  is not reconstructible from the archived invocation evidence.
+- Exact rendered prompts, the evaluated skill snapshot, invocation flags, and raw
+  event logs were not included in the pre-evaluation seal. Candidate patches and
+  reports reproduce, but the exact treatment cannot be rerun from the archive alone.
+- Seal-before-hidden ordering is an operator record, not a cryptographically
+  timestamped or mechanically enforced guarantee.
+- All controls could inspect the complete authoritative Node implementation, making
+  the task mechanically tractable.
+- The unstructured multi-agent control was allowed up to 40 contexts but chose one
+  context for Cobalt and four for Amber and Jade.
+- Run wall time is measured from event-log lifetime and summed across paired runs;
+  calendar time was lower because runs overlapped.
+- The first sandbox-invalid attempt was discarded rather than counted because none
+  of its variants could execute the declared oracle.
+- Review precision and pattern-transfer rates cannot be reconstructed reliably from
+  the fixed aggregate traces.
+
+## Blind official evaluation of the 0.2 patch loop — July 2026
 
 ### Blind protocol fixed before coding
 
@@ -120,9 +294,10 @@ The reviewers were useful defect generators, but defect generation is not the sa
 as task correctness. In this sample, the extra search increased cost and candidate
 complexity without improving the resolved rate.
 
-### Workflow changes prompted by this study
+### Lessons carried into 0.3
 
-The skill now requires:
+The 0.3 workflow retains these checks as conditional review rubrics rather than
+mandatory ceremony for every patch:
 
 - primary-contract reconstruction and exact observable semantics before edge-case
   expansion;
@@ -131,13 +306,12 @@ The skill now requires:
 - identification of the repository-owned authoritative abstraction and sibling
   frontends before implementation;
 - negative compatibility controls for behavior that must remain rejected;
-- a complexity ratchet that stops and re-audits growing patches without measurable
-  primary progress;
 - early blocking when required runtime evidence is unavailable and review cannot
   supply an independent executable oracle.
 
-These changes are hypotheses derived from failure analysis. They require another
-fresh blind evaluation; they are not evidence that the skill is now superior.
+Version 0.3 also removes recursive reviewer cascades and mandatory global `CLEAN`
+reviews. Executable item and integration oracles now control completion. These
+changes are hypotheses derived from failure analysis, not evidence of superiority.
 
 ### Limitations
 
@@ -180,15 +354,19 @@ stop unsupported completion; it did not show an outcome advantage.
 
 ## Next evaluation
 
-Keep the same three-field prompt boundary and official harness, then run a new
-preregistered sample after the workflow changes above. Priorities are:
+The next Factory study should preserve the same three-field prompt boundary,
+three-way control design, sealing, and hidden evaluation while changing the scale
+and information structure:
 
-- at least five new repository-diverse tasks that do not overlap either study;
-- Rust, TypeScript, or Go work to reduce Python-only conclusions;
-- a parser or compiler task, an async or concurrent state-machine bug, and a
-  backward-compatible multi-file migration;
-- repeated seeds and matched hard budgets;
-- wall-clock, token, context, patch-size, and fix-round measurements.
+- a queue large enough that preparation and a three-item trial are at most one
+  quarter of expected work;
+- partial or noisy item oracles plus a stronger integration oracle;
+- cross-item dependencies and repeated defect classes appearing across many later
+  items;
+- finding-level traces that permit review-precision and pattern-transfer metrics;
+- repeated seeds, wall-clock measurement, and a budget large enough to represent
+  the declared per-item topology honestly.
 
-Do not promote the workflow as an accuracy improvement unless repeated blind
-results show a benefit large enough to justify its additional cost.
+Patch Mode still needs a separate new blind ticket evaluation because the Factory
+fixture does not validate it. Do not promote either mode as an accuracy improvement
+until it beats matched controls by enough to justify its cost.

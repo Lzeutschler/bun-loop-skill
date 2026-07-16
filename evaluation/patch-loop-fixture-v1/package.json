@@ -1,0 +1,7 @@
+{
+  "name": "bun-loop-patch-budget-fixture",
+  "private": true,
+  "scripts": {
+    "test": "node --test oracle/cases.js"
+  }
+}

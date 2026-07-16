@@ -1,0 +1,17 @@
+[
+  {
+    "problem_statement": "Complete the Rust port of eight transformation modules so it exactly matches the authoritative Node.js implementation for all supported inputs. The work is a repeatable porting backlog, not one monolithic rewrite.\n\nOperations:\n- `amber_window`\n- `amber_tail`\n- `amber_floor_bucket`\n- `amber_wrap_index`\n- `amber_escaped_fields`\n- `amber_escaped_pairs`\n- `amber_stable_unique`\n- `amber_stable_merge`\n\nThe source implementation is in reference/cli.mjs. The incomplete Rust port is in port/src/ops/. Run ./scripts/visible-oracle.sh for the executable compile-and-parity oracle. Preserve exact JSON values, ordering, Unicode behavior, escaping, negative-number behavior, and existing public operation names.\n\nDo not modify reference/, cases/, or scripts/, do not weaken checks, and do not add network dependencies. Keep each module independently reviewable and finish the complete backlog.",
+    "repo": "bun-loop-factory/amber",
+    "base_commit": "a989fa97eee95f0cf4deef252611615b75760b2e"
+  },
+  {
+    "problem_statement": "Complete the Rust port of eight transformation modules so it exactly matches the authoritative Node.js implementation for all supported inputs. The work is a repeatable porting backlog, not one monolithic rewrite.\n\nOperations:\n- `cobalt_window`\n- `cobalt_tail`\n- `cobalt_floor_bucket`\n- `cobalt_wrap_index`\n- `cobalt_escaped_fields`\n- `cobalt_escaped_pairs`\n- `cobalt_stable_unique`\n- `cobalt_stable_merge`\n\nThe source implementation is in reference/cli.mjs. The incomplete Rust port is in port/src/ops/. Run ./scripts/visible-oracle.sh for the executable compile-and-parity oracle. Preserve exact JSON values, ordering, Unicode behavior, escaping, negative-number behavior, and existing public operation names.\n\nDo not modify reference/, cases/, or scripts/, do not weaken checks, and do not add network dependencies. Keep each module independently reviewable and finish the complete backlog.",
+    "repo": "bun-loop-factory/cobalt",
+    "base_commit": "be3cf815d37191d314e8b327e364416de7f58299"
+  },
+  {
+    "problem_statement": "Complete the Rust port of eight transformation modules so it exactly matches the authoritative Node.js implementation for all supported inputs. The work is a repeatable porting backlog, not one monolithic rewrite.\n\nOperations:\n- `jade_window`\n- `jade_tail`\n- `jade_floor_bucket`\n- `jade_wrap_index`\n- `jade_escaped_fields`\n- `jade_escaped_pairs`\n- `jade_stable_unique`\n- `jade_stable_merge`\n\nThe source implementation is in reference/cli.mjs. The incomplete Rust port is in port/src/ops/. Run ./scripts/visible-oracle.sh for the executable compile-and-parity oracle. Preserve exact JSON values, ordering, Unicode behavior, escaping, negative-number behavior, and existing public operation names.\n\nDo not modify reference/, cases/, or scripts/, do not weaken checks, and do not add network dependencies. Keep each module independently reviewable and finish the complete backlog.",
+    "repo": "bun-loop-factory/jade",
+    "base_commit": "c0880e4953487aa5a90da4528a70201a7a796295"
+  }
+]

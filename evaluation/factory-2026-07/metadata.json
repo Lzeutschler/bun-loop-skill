@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "date": "2026-07-16",
+  "skill_version": "0.3.0 pre-release factory contract",
+  "model": "gpt-5.6-sol",
+  "codex_version": "0.144.2",
+  "node_version": "22.22.2",
+  "docker_server_version": "27.4.0",
+  "rust_image": "docker.io/library/rust:1.88.0-slim-bookworm@sha256:38bc5a86d998772d4aec2348656ed21438d20fcdce2795b56ca434cf21430d89",
+  "discarded_attempt": {
+    "count": 1,
+    "reason": "The initial coding sandbox could not access the Docker oracle. All three partial candidate roots and artifacts were deleted, the fixtures were regenerated, and all nine recorded runs used fresh roots with Docker access. No hidden evaluator was run or inspected before the recorded seal."
+  },
+  "trace_qualification": "The fixed prompt emitted FACTORY_TRACE without a colon while the original archiver expected a colon. Sealed trace files retain the complete final message and a parse_error. aggregate.json recovers the JSON from those sealed final messages without changing candidate artifacts.",
+  "wall_clock_qualification": "Per-run wall time is the event-log file lifetime rounded to seconds. Aggregate wall time is the sum of paired-run durations, not elapsed calendar time because runs overlapped.",
+  "blindness_qualification": "Candidate repositories excluded evaluator artifacts, but evaluator data lived in a readable sibling directory in the operator workspace. Agents were instructed not to read outside candidate repositories; no OS or mount boundary enforced that instruction.",
+  "ordering_qualification": "The operator sealed candidate artifacts before hidden evaluation and reverified the seal before applying each patch. The seal proves present artifact integrity, not the historical ordering, because no trusted timestamped execution ledger was captured.",
+  "reproduction_qualification": "Exact rendered prompts, the evaluated skill snapshot, invocation flags, and raw event logs were not included in the pre-evaluation seal. Candidate patches and reports reproduce, but the exact treatment cannot be rerun from this archive alone.",
+  "usage_qualification": "Token totals are archiver-derived maxima from available Codex usage events. Raw event logs and their schema were not sealed. Context counts and workflow events are agent self-reports.",
+  "network_qualification": "Fixed instructions forbade network use, but exact invocation flags were not archived, so sandbox enforcement is not independently verifiable."
+}

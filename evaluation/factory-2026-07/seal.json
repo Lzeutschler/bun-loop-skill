@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "hash_algorithm": "sha256",
+  "task_count": 3,
+  "variants": [
+    "factory",
+    "single",
+    "multi"
+  ],
+  "manifest_sha256": "8e04457f6641e5f7d9053952dacc401cbe3d0699399b790474fec13b43948418",
+  "protocol_sha256": "e56db1340155abc618e3405667c97e19ee528263dcbcee9d5ed3e7612644be85",
+  "artifacts": {
+    "amber/factory.patch": "566c98a492099e4536e01b8d714b443e0367351ecd3fcd4d89aa03ac457f0fba",
+    "amber/factory.usage.json": "a94b908555d4d28b2c3a17001e28f848d4e44a1e610b909d852345a135179524",
+    "amber/factory.trace.json": "4b945bb9ba9442ad69d0a472699555d06c0d82951093828040744263a373a0b5",
+    "amber/single.patch": "a9b571bcd04c43bccc9493965ece553b410df139354cb810fb1a78b62e8dfb6a",
+    "amber/single.usage.json": "966a0637414c1b94e343ba85697714809294d8e9c79e6df808e0be371145b49c",
+    "amber/single.trace.json": "0edf948bf0091c3d4d9e67362862cc2b3cecda0d3610203863763b7d433eced8",
+    "amber/multi.patch": "8678522b2e7c149899d07c0c1ca3fbd847b1aeacef4ad569b3cb0c5f11e80e9a",
+    "amber/multi.usage.json": "14fb533e3a42d60a8eda6f3c13683858d7efed3733a863e79eb306c768a229d7",
+    "amber/multi.trace.json": "38f4a0ce1948d7078d630fc438ebc70bcddd3746f4f1fb2bbe868bd14004c4ca",
+    "cobalt/factory.patch": "e95d591c4a57025b86fa019efbdd1a8276bb10501cc0b3af8ab784e6bd3aea68",
+    "cobalt/factory.usage.json": "9254a6b7caf8010f7e26a58be6882fb523bc751940ce64361d89cfaaa5d59795",
+    "cobalt/factory.trace.json": "f0bdce708c011ba3df3fe44978af22a59ac17486c9e20c5dd25a072ca4f21bdf",
+    "cobalt/single.patch": "b81d06a3f2ea225e3bac66e867b66b0416d8e5b994ab9d8d146597467ff6bbf2",
+    "cobalt/single.usage.json": "571080fe88a1dc4000ee26966c7d8412f54635f05c92591888b8617afde9feec",
+    "cobalt/single.trace.json": "e26e6d424b56074b2f5055581a626efb5e69e0084caabfaf0623bb6bee2cc23f",
+    "cobalt/multi.patch": "f08c57341749bf3995e8b5b1eb1b48232e97a7fec3c8b10ca614d14e52d4fa53",
+    "cobalt/multi.usage.json": "34d92fbe97d63fefb7118c644eecf6cdc6a6220c748a6170e9529ace612729f4",
+    "cobalt/multi.trace.json": "4291b95e897f8987025902a4dbf3fbb24aa2f594797cdf172fbd7ca3e7e60013",
+    "jade/factory.patch": "65047a59765df8b0a4e78f89eb92fa7e8d3272cd91a4f302f5a9e00ab21daad0",
+    "jade/factory.usage.json": "e40786158f87c1e17fa45e71f87d039c1ff10f197bcd7cad966b84d42c4a663a",
+    "jade/factory.trace.json": "7ccdf71f632244bec83228f406a7e0686bba771c3fd302649f33dfb4373b9ea8",
+    "jade/single.patch": "b8bc013a203a9f27a70f54ba93add35736168fc07e99ac1b25b20178613f7823",
+    "jade/single.usage.json": "0c34450a6472fb2f6aca95e115333f998e0c98c5e56f811812bf53ca5c60d0c0",
+    "jade/single.trace.json": "4c9823b50fb725a9364983240eb31327fe02ce7887e7fef8933feaf815033a2f",
+    "jade/multi.patch": "612e98c4c5175bafa04eca5ddae2bc671b03700fbb02627ee310ff37eea755db",
+    "jade/multi.usage.json": "c95232e2fc53cb3f764c7b20fef804ecb294d7b0c1e6cfe42d2b8449cf6fe9c8",
+    "jade/multi.trace.json": "7924d97e579247354278a6a2338ff9001bd13ebf772c699f18462758e0faef7c"
+  }
+}

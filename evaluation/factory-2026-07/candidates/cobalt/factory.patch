@@ -1,0 +1,722 @@
+diff --git a/port/src/main.rs b/port/src/main.rs
+index cc62984..d76badf 100644
+--- a/port/src/main.rs
++++ b/port/src/main.rs
+@@ -1,6 +1,6 @@
+ mod ops;
+ 
+-enum Output { Text(String), Number(i64), Texts(Vec<String>) }
++enum Output { Text(String), Number(i64), JsNumber(f64), Texts(Vec<String>) }
+ 
+ fn escape_json(value: &str) -> String {
+     let mut out = String::from("\"");
+@@ -8,9 +8,15 @@ fn escape_json(value: &str) -> String {
+         match ch {
+             '\\' => out.push_str("\\\\"),
+             '"' => out.push_str("\\\""),
++            '\u{0008}' => out.push_str("\\b"),
++            '\u{000c}' => out.push_str("\\f"),
+             '\n' => out.push_str("\\n"),
+             '\r' => out.push_str("\\r"),
+             '\t' => out.push_str("\\t"),
++            c if c <= '\u{001f}' => {
++                use std::fmt::Write;
++                write!(out, "\\u{:04x}", c as u32).unwrap();
++            }
+             c => out.push(c),
+         }
+     }
+@@ -22,20 +28,70 @@ fn render(output: Output) -> String {
+     match output {
+         Output::Text(value) => escape_json(&value),
+         Output::Number(value) => value.to_string(),
++        Output::JsNumber(value) => ops::floor_bucket::stringify(value),
+         Output::Texts(values) => format!("[{}]", values.iter().map(|v| escape_json(v)).collect::<Vec<_>>().join(",")),
+     }
+ }
+ 
++fn to_integer_or_infinity(value: Option<&str>) -> f64 {
++    let Some(value) = value else {
++        return f64::NAN;
++    };
++
++    let floor = ops::floor_bucket::run(value, "1");
++    if floor < 0.0 {
++        -ops::floor_bucket::run(value, "-1")
++    } else {
++        floor
++    }
++}
++
++fn is_number_whitespace(ch: char) -> bool {
++    let leading = format!("{ch}1");
++    let trailing = format!("1{ch}");
++    ops::floor_bucket::run(&leading, "1") == 1.0
++        && ops::floor_bucket::run(&trailing, "1") == 1.0
++}
++
++fn parse_number(value: Option<&str>) -> f64 {
++    let Some(value) = value else {
++        return f64::NAN;
++    };
++
++    // Reuse floor_bucket's Number parser. Its floor is also a validity check and
++    // is already the exact value for the non-decimal integer syntaxes.
++    let floor = ops::floor_bucket::run(value, "1");
++    if !floor.is_finite() {
++        return floor;
++    }
++
++    let decimal = value.trim_matches(is_number_whitespace);
++    decimal
++        .parse::<f64>()
++        .ok()
++        .filter(|parsed| parsed.floor() == floor)
++        .unwrap_or(floor)
++}
++
+ fn main() {
+     let args: Vec<String> = std::env::args().skip(1).collect();
+     let op = args.first().expect("operation").as_str();
+     let values = &args[1..];
+     let output = match op {
+-        "cobalt_window" => Output::Text(ops::window::run(&values[0], values[1].parse().unwrap(), values[2].parse().unwrap())),
+-        "cobalt_tail" => Output::Text(ops::tail::run(&values[0], values[1].parse().unwrap())),
+-        "cobalt_floor_bucket" => Output::Number(ops::floor_bucket::run(values[0].parse().unwrap(), values[1].parse().unwrap())),
+-        "cobalt_wrap_index" => Output::Number(ops::wrap_index::run(values[0].parse().unwrap(), values[1].parse().unwrap())),
+-        "cobalt_escaped_fields" => Output::Texts(ops::escaped_fields::run(&values[0], values[1].chars().next().unwrap())),
++        "cobalt_window" => Output::Text(ops::window::run(&values[0], &values[1], &values[2])),
++        "cobalt_tail" => Output::Text(ops::tail::run(
++            &values[0],
++            to_integer_or_infinity(values.get(1).map(String::as_str)),
++        )),
++        "cobalt_floor_bucket" => Output::JsNumber(ops::floor_bucket::run(&values[0], &values[1])),
++        "cobalt_wrap_index" => Output::JsNumber(ops::wrap_index::run(
++            parse_number(values.first().map(String::as_str)),
++            parse_number(values.get(1).map(String::as_str)),
++        )),
++        "cobalt_escaped_fields" => Output::Texts(ops::escaped_fields::run(
++            &values[0],
++            values.get(1).map(String::as_str).unwrap_or(""),
++        )),
+         "cobalt_escaped_pairs" => Output::Texts(ops::escaped_pairs::run(&values[0])),
+         "cobalt_stable_unique" => Output::Texts(ops::stable_unique::run(values)),
+         "cobalt_stable_merge" => Output::Texts(ops::stable_merge::run(values)),
+diff --git a/port/src/ops/escaped_fields.rs b/port/src/ops/escaped_fields.rs
+index a56fc45..7d086a3 100644
+--- a/port/src/ops/escaped_fields.rs
++++ b/port/src/ops/escaped_fields.rs
+@@ -1,3 +1,37 @@
+-pub fn run(input: &str, delimiter: char) -> Vec<String> {
+-    input.split(delimiter).map(str::to_owned).collect()
++pub fn split_escaped(input: &str, delimiter: &str) -> Vec<String> {
++    let delimiter = {
++        let mut chars = delimiter.chars();
++        match (chars.next(), chars.next()) {
++            (Some(delimiter), None) => Some(delimiter),
++            _ => None,
++        }
++    };
++
++    let mut result = Vec::new();
++    let mut current = String::new();
++    let mut escaped = false;
++
++    for ch in input.chars() {
++        if escaped {
++            current.push(ch);
++            escaped = false;
++        } else if ch == '\\' {
++            escaped = true;
++        } else if Some(ch) == delimiter {
++            result.push(current);
++            current = String::new();
++        } else {
++            current.push(ch);
++        }
++    }
++
++    if escaped {
++        current.push('\\');
++    }
++    result.push(current);
++    result
++}
++
++pub fn run(input: &str, delimiter: &str) -> Vec<String> {
++    split_escaped(input, delimiter)
+ }
+diff --git a/port/src/ops/escaped_pairs.rs b/port/src/ops/escaped_pairs.rs
+index cc4ebaa..06c288b 100644
+--- a/port/src/ops/escaped_pairs.rs
++++ b/port/src/ops/escaped_pairs.rs
+@@ -1,6 +1,11 @@
+ pub fn run(input: &str) -> Vec<String> {
+-    input.split(';').map(|entry| {
+-        let (key, value) = entry.split_once('=').unwrap_or((entry, ""));
+-        format!("{key}:{value}")
+-    }).collect()
++    super::escaped_fields::split_escaped(input, ";")
++        .into_iter()
++        .map(|entry| {
++            let mut parts = super::escaped_fields::split_escaped(&entry, "=").into_iter();
++            let key = parts.next().unwrap_or_default();
++            let value = parts.collect::<Vec<_>>().join("=");
++            format!("{key}:{value}")
++        })
++        .collect()
+ }
+diff --git a/port/src/ops/floor_bucket.rs b/port/src/ops/floor_bucket.rs
+index 934b882..2581ed0 100644
+--- a/port/src/ops/floor_bucket.rs
++++ b/port/src/ops/floor_bucket.rs
+@@ -1 +1,239 @@
+-pub fn run(value: i64, width: i64) -> i64 { value / width }
++pub fn run(value: &str, width: &str) -> f64 {
++    (parse_number(value) / parse_number(width)).floor()
++}
++
++pub fn stringify(value: f64) -> String {
++    if !value.is_finite() {
++        return "null".to_owned();
++    }
++    if value == 0.0 {
++        return "0".to_owned();
++    }
++
++    // `Display` supplies the shortest decimal that round-trips to this f64.
++    // Re-layout those digits using Number::toString's notation boundaries;
++    // fixed precision formatting would instead expose the exact binary integer.
++    let negative = value.is_sign_negative();
++    let rendered = value.abs().to_string();
++    let (mantissa, exponent) = rendered
++        .split_once('e')
++        .or_else(|| rendered.split_once('E'))
++        .map_or((rendered.as_str(), 0), |(mantissa, exponent)| {
++            (mantissa, exponent.parse::<i32>().unwrap())
++        });
++
++    let decimal_point = mantissa.find('.').unwrap_or(mantissa.len()) as i32;
++    let mut digits: String = mantissa.chars().filter(|&ch| ch != '.').collect();
++    let leading_zeroes = digits.bytes().position(|digit| digit != b'0').unwrap();
++    digits.drain(..leading_zeroes);
++    while digits.ends_with('0') {
++        digits.pop();
++    }
++
++    let digit_count = digits.len() as i32;
++    let decimal_position = decimal_point + exponent - leading_zeroes as i32;
++    let mut result = String::new();
++    if negative {
++        result.push('-');
++    }
++
++    if digit_count <= decimal_position && decimal_position <= 21 {
++        result.push_str(&digits);
++        result.extend(std::iter::repeat('0').take((decimal_position - digit_count) as usize));
++    } else if 0 < decimal_position && decimal_position <= 21 {
++        let decimal_position = decimal_position as usize;
++        result.push_str(&digits[..decimal_position]);
++        result.push('.');
++        result.push_str(&digits[decimal_position..]);
++    } else if -6 < decimal_position && decimal_position <= 0 {
++        result.push_str("0.");
++        result.extend(std::iter::repeat('0').take((-decimal_position) as usize));
++        result.push_str(&digits);
++    } else {
++        result.push_str(&digits[..1]);
++        if digits.len() > 1 {
++            result.push('.');
++            result.push_str(&digits[1..]);
++        }
++        result.push('e');
++        let exponent = decimal_position - 1;
++        if exponent >= 0 {
++            result.push('+');
++        }
++        result.push_str(&exponent.to_string());
++    }
++
++    result
++}
++
++fn parse_number(input: &str) -> f64 {
++    let input = input.trim_matches(is_js_whitespace);
++    if input.is_empty() {
++        return 0.0;
++    }
++
++    match input {
++        "Infinity" | "+Infinity" => return f64::INFINITY,
++        "-Infinity" => return f64::NEG_INFINITY,
++        _ => {}
++    }
++
++    if let Some(digits) = input.strip_prefix("0x").or_else(|| input.strip_prefix("0X")) {
++        return parse_power_of_two_integer(digits, 4, hex_digit);
++    }
++    if let Some(digits) = input.strip_prefix("0o").or_else(|| input.strip_prefix("0O")) {
++        return parse_power_of_two_integer(digits, 3, octal_digit);
++    }
++    if let Some(digits) = input.strip_prefix("0b").or_else(|| input.strip_prefix("0B")) {
++        return parse_power_of_two_integer(digits, 1, binary_digit);
++    }
++
++    if !is_decimal_literal(input) {
++        return f64::NAN;
++    }
++    input.parse().unwrap_or(f64::NAN)
++}
++
++fn is_js_whitespace(ch: char) -> bool {
++    matches!(
++        ch,
++        '\u{0009}'
++            | '\u{000a}'
++            | '\u{000b}'
++            | '\u{000c}'
++            | '\u{000d}'
++            | '\u{0020}'
++            | '\u{00a0}'
++            | '\u{1680}'
++            | '\u{2000}'..='\u{200a}'
++            | '\u{2028}'
++            | '\u{2029}'
++            | '\u{202f}'
++            | '\u{205f}'
++            | '\u{3000}'
++            | '\u{feff}'
++    )
++}
++
++fn is_decimal_literal(input: &str) -> bool {
++    let bytes = input.as_bytes();
++    let mut cursor = usize::from(matches!(bytes.first(), Some(b'+') | Some(b'-')));
++    let integer_start = cursor;
++    while matches!(bytes.get(cursor), Some(b'0'..=b'9')) {
++        cursor += 1;
++    }
++    let integer_digits = cursor - integer_start;
++
++    let mut fractional_digits = 0;
++    if bytes.get(cursor) == Some(&b'.') {
++        cursor += 1;
++        let fractional_start = cursor;
++        while matches!(bytes.get(cursor), Some(b'0'..=b'9')) {
++            cursor += 1;
++        }
++        fractional_digits = cursor - fractional_start;
++    }
++    if integer_digits + fractional_digits == 0 {
++        return false;
++    }
++
++    if matches!(bytes.get(cursor), Some(b'e') | Some(b'E')) {
++        cursor += 1;
++        if matches!(bytes.get(cursor), Some(b'+') | Some(b'-')) {
++            cursor += 1;
++        }
++        let exponent_start = cursor;
++        while matches!(bytes.get(cursor), Some(b'0'..=b'9')) {
++            cursor += 1;
++        }
++        if cursor == exponent_start {
++            return false;
++        }
++    }
++
++    cursor == bytes.len()
++}
++
++fn binary_digit(byte: u8) -> Option<u8> {
++    (b'0'..=b'1').contains(&byte).then_some(byte - b'0')
++}
++
++fn octal_digit(byte: u8) -> Option<u8> {
++    (b'0'..=b'7').contains(&byte).then_some(byte - b'0')
++}
++
++fn hex_digit(byte: u8) -> Option<u8> {
++    match byte {
++        b'0'..=b'9' => Some(byte - b'0'),
++        b'a'..=b'f' => Some(byte - b'a' + 10),
++        b'A'..=b'F' => Some(byte - b'A' + 10),
++        _ => None,
++    }
++}
++
++fn parse_power_of_two_integer(
++    digits: &str,
++    bits_per_digit: usize,
++    decode: fn(u8) -> Option<u8>,
++) -> f64 {
++    if digits.is_empty() {
++        return f64::NAN;
++    }
++
++    let mut decoded = Vec::with_capacity(digits.len());
++    for byte in digits.bytes() {
++        let Some(digit) = decode(byte) else {
++            return f64::NAN;
++        };
++        decoded.push(digit);
++    }
++
++    let Some(first_index) = decoded.iter().position(|&digit| digit != 0) else {
++        return 0.0;
++    };
++    let first = decoded[first_index];
++    let first_bits = u8::BITS as usize - first.leading_zeros() as usize;
++    let bit_length = first_bits + (decoded.len() - first_index - 1) * bits_per_digit;
++    if bit_length > 1024 {
++        return f64::INFINITY;
++    }
++
++    let mut significand = 0_u64;
++    let mut significant_index = 0_usize;
++    let mut round_bit = false;
++    let mut sticky = false;
++    for (offset, &digit) in decoded[first_index..].iter().enumerate() {
++        let high_bit = if offset == 0 {
++            first_bits - 1
++        } else {
++            bits_per_digit - 1
++        };
++        for bit in (0..=high_bit).rev() {
++            let set = digit & (1 << bit) != 0;
++            match significant_index {
++                0..=52 => significand = (significand << 1) | u64::from(set),
++                53 => round_bit = set,
++                _ => sticky |= set,
++            }
++            significant_index += 1;
++        }
++    }
++
++    if bit_length <= 53 {
++        return significand as f64;
++    }
++    if round_bit && (sticky || significand & 1 != 0) {
++        significand += 1;
++    }
++
++    let mut rounded_bit_length = bit_length;
++    if significand == 1_u64 << 53 {
++        significand >>= 1;
++        rounded_bit_length += 1;
++    }
++    if rounded_bit_length > 1024 {
++        return f64::INFINITY;
++    }
++
++    significand as f64 * 2_f64.powi(rounded_bit_length as i32 - 53)
++}
+diff --git a/port/src/ops/stable_merge.rs b/port/src/ops/stable_merge.rs
+index 6d352c2..ae72b96 100644
+--- a/port/src/ops/stable_merge.rs
++++ b/port/src/ops/stable_merge.rs
+@@ -1,7 +1,10 @@
+ pub fn run(values: &[String]) -> Vec<String> {
+     let split = values.iter().position(|v| v == "--").unwrap_or(values.len());
+-    let mut result = values[..split].iter().chain(values.get(split + 1..).unwrap_or(&[])).cloned().collect::<Vec<_>>();
+-    result.sort();
+-    result.dedup();
+-    result
++    let merged = values[..split]
++        .iter()
++        .chain(values.get(split + 1..).unwrap_or(&[]))
++        .cloned()
++        .collect::<Vec<_>>();
++
++    super::stable_unique::run(&merged)
+ }
+diff --git a/port/src/ops/stable_unique.rs b/port/src/ops/stable_unique.rs
+index 4315a17..46a1edc 100644
+--- a/port/src/ops/stable_unique.rs
++++ b/port/src/ops/stable_unique.rs
+@@ -1,6 +1,14 @@
++use std::collections::HashSet;
++
+ pub fn run(values: &[String]) -> Vec<String> {
+-    let mut result = values.to_vec();
+-    result.sort();
+-    result.dedup();
++    let mut seen = HashSet::with_capacity(values.len());
++    let mut result = Vec::with_capacity(values.len());
++
++    for value in values {
++        if seen.insert(value.as_str()) {
++            result.push(value.clone());
++        }
++    }
++
+     result
+ }
+diff --git a/port/src/ops/tail.rs b/port/src/ops/tail.rs
+index ed88839..02a2b07 100644
+--- a/port/src/ops/tail.rs
++++ b/port/src/ops/tail.rs
+@@ -1,4 +1,25 @@
+-pub fn run(input: &str, count: usize) -> String {
+-    let bytes = input.as_bytes();
+-    String::from_utf8_lossy(&bytes[bytes.len().saturating_sub(count)..]).into_owned()
++pub fn run(input: &str, count: f64) -> String {
++    let chars: Vec<char> = input.chars().collect();
++    let length = chars.len();
++
++    let start = if count.is_nan() || count == 0.0 || count == f64::INFINITY {
++        0
++    } else if count == f64::NEG_INFINITY {
++        length
++    } else if count > 0.0 {
++        if count >= length as f64 {
++            0
++        } else {
++            length - count as usize
++        }
++    } else {
++        let start = -count;
++        if start >= length as f64 {
++            length
++        } else {
++            start as usize
++        }
++    };
++
++    chars[start..].iter().collect()
+ }
+diff --git a/port/src/ops/window.rs b/port/src/ops/window.rs
+index 11e6f16..34d76ac 100644
+--- a/port/src/ops/window.rs
++++ b/port/src/ops/window.rs
+@@ -1,5 +1,217 @@
+-pub fn run(input: &str, start: isize, count: usize) -> String {
+-    let bytes = input.as_bytes();
+-    let begin = if start < 0 { bytes.len().saturating_sub((-start) as usize) } else { start as usize };
+-    String::from_utf8_lossy(&bytes[begin.min(bytes.len())..(begin + count).min(bytes.len())]).into_owned()
++fn is_js_whitespace(ch: char) -> bool {
++    matches!(
++        ch,
++        '\u{0009}'
++            | '\u{000a}'
++            | '\u{000b}'
++            | '\u{000c}'
++            | '\u{000d}'
++            | '\u{0020}'
++            | '\u{00a0}'
++            | '\u{1680}'
++            | '\u{2000}'..='\u{200a}'
++            | '\u{2028}'
++            | '\u{2029}'
++            | '\u{202f}'
++            | '\u{205f}'
++            | '\u{3000}'
++            | '\u{feff}'
++    )
++}
++
++fn is_decimal_literal(value: &str) -> bool {
++    let bytes = value.as_bytes();
++    let mut index = 0;
++
++    if matches!(bytes.first(), Some(b'+' | b'-')) {
++        index += 1;
++    }
++
++    let integer_start = index;
++    while matches!(bytes.get(index), Some(b'0'..=b'9')) {
++        index += 1;
++    }
++    let has_integer = index > integer_start;
++
++    let mut has_fraction = false;
++    if bytes.get(index) == Some(&b'.') {
++        index += 1;
++        let fraction_start = index;
++        while matches!(bytes.get(index), Some(b'0'..=b'9')) {
++            index += 1;
++        }
++        has_fraction = index > fraction_start;
++    }
++
++    if !has_integer && !has_fraction {
++        return false;
++    }
++
++    if matches!(bytes.get(index), Some(b'e' | b'E')) {
++        index += 1;
++        if matches!(bytes.get(index), Some(b'+' | b'-')) {
++            index += 1;
++        }
++        let exponent_start = index;
++        while matches!(bytes.get(index), Some(b'0'..=b'9')) {
++            index += 1;
++        }
++        if index == exponent_start {
++            return false;
++        }
++    }
++
++    index == bytes.len()
++}
++
++fn digit_value(byte: u8) -> Option<u8> {
++    match byte {
++        b'0'..=b'9' => Some(byte - b'0'),
++        b'a'..=b'f' => Some(byte - b'a' + 10),
++        b'A'..=b'F' => Some(byte - b'A' + 10),
++        _ => None,
++    }
++}
++
++// Binary, octal, and hexadecimal integer literals are powers-of-two radices. Reading
++// their leading 53 bits plus a guard and sticky bit reproduces Number's rounding
++// without needing an arbitrary-precision integer dependency.
++fn parse_radix_integer(digits: &str, radix_bits: usize, radix: u8) -> Option<f64> {
++    if digits.is_empty() {
++        return None;
++    }
++
++    let mut values = Vec::with_capacity(digits.len());
++    for byte in digits.bytes() {
++        let value = digit_value(byte)?;
++        if value >= radix {
++            return None;
++        }
++        values.push(value);
++    }
++
++    let Some(first_nonzero) = values.iter().position(|&value| value != 0) else {
++        return Some(0.0);
++    };
++    let first = values[first_nonzero];
++    let first_bits = (u8::BITS - first.leading_zeros()) as usize;
++    let bit_length = first_bits + (values.len() - first_nonzero - 1) * radix_bits;
++
++    let mut leading = 0_u64;
++    let mut seen = 0_usize;
++    let mut guard = false;
++    let mut sticky = false;
++    for (position, &value) in values[first_nonzero..].iter().enumerate() {
++        let width = if position == 0 { first_bits } else { radix_bits };
++        for shift in (0..width).rev() {
++            let bit = (value >> shift) & 1 != 0;
++            if seen < 53 {
++                leading = (leading << 1) | u64::from(bit);
++            } else if seen == 53 {
++                guard = bit;
++            } else {
++                sticky |= bit;
++            }
++            seen += 1;
++        }
++    }
++
++    if bit_length <= 53 {
++        return Some(leading as f64);
++    }
++
++    if guard && (sticky || leading & 1 != 0) {
++        leading += 1;
++    }
++
++    let mut exponent = bit_length - 1;
++    if leading == 1_u64 << 53 {
++        leading >>= 1;
++        exponent += 1;
++    }
++    if exponent > 1023 {
++        return Some(f64::INFINITY);
++    }
++
++    let fraction = leading - (1_u64 << 52);
++    Some(f64::from_bits(
++        (((exponent as u64) + 1023) << 52) | fraction,
++    ))
++}
++
++fn js_number(value: &str) -> f64 {
++    let value = value.trim_matches(is_js_whitespace);
++    if value.is_empty() {
++        return 0.0;
++    }
++    match value {
++        "Infinity" | "+Infinity" => return f64::INFINITY,
++        "-Infinity" => return f64::NEG_INFINITY,
++        _ => {}
++    }
++
++    if let Some(digits) = value
++        .strip_prefix("0b")
++        .or_else(|| value.strip_prefix("0B"))
++    {
++        return parse_radix_integer(digits, 1, 2).unwrap_or(f64::NAN);
++    }
++    if let Some(digits) = value
++        .strip_prefix("0o")
++        .or_else(|| value.strip_prefix("0O"))
++    {
++        return parse_radix_integer(digits, 3, 8).unwrap_or(f64::NAN);
++    }
++    if let Some(digits) = value
++        .strip_prefix("0x")
++        .or_else(|| value.strip_prefix("0X"))
++    {
++        return parse_radix_integer(digits, 4, 16).unwrap_or(f64::NAN);
++    }
++
++    if is_decimal_literal(value) {
++        value.parse().unwrap_or(f64::NAN)
++    } else {
++        f64::NAN
++    }
++}
++
++fn slice_index(value: f64, length: usize) -> usize {
++    if value.is_nan() || value == 0.0 {
++        return 0;
++    }
++    if value == f64::NEG_INFINITY {
++        return 0;
++    }
++    if value == f64::INFINITY {
++        return length;
++    }
++
++    let integer = value.trunc();
++    let length_number = length as f64;
++    if integer < 0.0 {
++        if integer <= -length_number {
++            0
++        } else {
++            (length_number + integer) as usize
++        }
++    } else if integer >= length_number {
++        length
++    } else {
++        integer as usize
++    }
++}
++
++pub fn run(input: &str, start: &str, count: &str) -> String {
++    let chars: Vec<char> = input.chars().collect();
++    let start = js_number(start);
++    let end = start + js_number(count);
++    let begin = slice_index(start, chars.len());
++    let end = slice_index(end, chars.len());
++
++    if end <= begin {
++        String::new()
++    } else {
++        chars[begin..end].iter().collect()
++    }
+ }
+diff --git a/port/src/ops/wrap_index.rs b/port/src/ops/wrap_index.rs
+index abc3ff4..3df5ccb 100644
+--- a/port/src/ops/wrap_index.rs
++++ b/port/src/ops/wrap_index.rs
+@@ -1 +1,3 @@
+-pub fn run(value: i64, size: i64) -> i64 { value % size }
++pub fn run(value: f64, size: f64) -> f64 {
++    ((value % size) + size) % size
++}
