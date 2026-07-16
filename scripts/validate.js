@@ -26,6 +26,7 @@ function parseJson(relativePath) {
 }
 
 const requiredFiles = [
+  ".gitattributes",
   "README.md",
   "EVALUATION.md",
   "LICENSE",
@@ -65,6 +66,14 @@ const requiredFiles = [
   "evaluation/blind-2026-07/reports/plain/aggregate.json",
 ];
 requiredFiles.forEach(read);
+
+const gitAttributes = read(".gitattributes");
+if (!/^\* text=auto eol=lf$/m.test(gitAttributes)) {
+  fail(".gitattributes must force LF for byte-stable evaluation seals");
+}
+if (!/^\*\.png binary$/m.test(gitAttributes)) {
+  fail(".gitattributes must keep PNG assets binary");
+}
 
 const skill = read("skills/bun-loop-skill/SKILL.md");
 const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);

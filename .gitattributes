@@ -1,0 +1,13 @@
+# Keep text byte-stable across platforms. Evaluation seals hash repository files.
+* text=auto eol=lf
+
+# Binary assets must never undergo line-ending conversion.
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.pdf binary
+*.png binary
+*.webp binary
+*.zip binary
+*.tgz binary
